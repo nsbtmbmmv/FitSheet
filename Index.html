@@ -1268,10 +1268,16 @@
       scheduleAutoSave();
     }
 
-    // 為指定動作新增下一組
+    // 為指定動作新增下一組 (沿用最後一組的重量與次數，減少重複輸入；備註不複製)
     function addNewSetToExercise(exIdx) {
       if (currentWorkout[exIdx]) {
-        currentWorkout[exIdx].sets.push({ weight: 0, reps: 0, note: '' });
+        const sets = currentWorkout[exIdx].sets;
+        const lastSet = sets[sets.length - 1];
+        sets.push({
+          weight: lastSet ? lastSet.weight : 0,
+          reps: lastSet ? lastSet.reps : 0,
+          note: ''
+        });
         renderWorkout();
         scheduleAutoSave();
       }
