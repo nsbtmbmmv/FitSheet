@@ -919,14 +919,16 @@
       const styleEl = document.getElementById('dynamic-theme-style') || document.createElement('style');
       styleEl.id = 'dynamic-theme-style';
       styleEl.innerHTML = `
-        .theme-accent-text {
+        /* 非 SVG 元素套用漸層文字效果 */
+        .theme-accent-text:not(svg) {
           background: linear-gradient(90deg, #ff4b4b, #ff7f00, #ffdd00, #00e676, #00b0ff, #aa00ff);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
           color: transparent !important;
-          display: inline-block;
         }
+        /* SVG 本身是 theme-accent-text（Lucide 替換後）或其子孫 SVG，均套彩虹描邊 */
+        svg.theme-accent-text,
         .theme-accent-text svg {
           stroke: url(#rainbow-gradient) !important;
         }
