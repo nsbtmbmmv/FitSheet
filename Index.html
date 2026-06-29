@@ -1142,6 +1142,9 @@
 
     // 載入特定日期的紀錄
     function loadRecordsForDate() {
+      // 切換/重新載入日期前，先把上一個日期尚未送出的變更存好
+      flushAutoSave();
+
       const dateStr = document.getElementById('selectedDate').value;
       if (!dateStr) return;
 
@@ -1159,8 +1162,11 @@
         .getRecordsByDate(dateStr);
     }
 
-    // 保存至 Google Sheet
+    // 保存至 Google Sheet (手動按鈕)
     function saveRecordsToSheet() {
+      // 手動儲存時取消尚未觸發的自動儲存，避免重複送出
+      cancelAutoSave();
+
       const dateStr = document.getElementById('selectedDate').value;
       if (!dateStr) return;
 
@@ -1175,6 +1181,45 @@
           showToast("儲存失敗: " + err.message);
         })
         .saveDayRecords(dateStr, currentWorkout);
+    }
+
+    // --- 自動儲存 (Debounce 防抖) ---
+    // 任何新增/修改/刪除後，3 秒內若無新動作才會送出；
+    // 3 秒內再次變更則重新計時 (clearTimeout 確保只有單一計時器，不會無限堆疊)。
+    let autoSaveTimer = null;
+    let pendingSaveDate = null;
+
+    function scheduleAutoSave() {
+      // 記住變更當下的日期，避免在等待期間切換日期導致存到錯誤日期
+      pendingSaveDate = document.getElementById('selectedDate').value;
+      if (autoSaveTimer) clearTimeout(autoSaveTimer);
+      autoSaveTimer = setTimeout(flushAutoSave, 3000);
+    }
+
+    // 立即送出尚未觸發的自動儲存 (切換日期前會先呼叫，確保不漏存)
+    function flushAutoSave() {
+      if (autoSaveTimer) { clearTimeout(autoSaveTimer); autoSaveTimer = null; }
+      if (!pendingSaveDate) return;
+
+      const dateStr = pendingSaveDate;
+      pendingSaveDate = null;
+      // 快照當前資料，避免送出途中資料被後續操作改動
+      const snapshot = JSON.parse(JSON.stringify(currentWorkout));
+
+      google.script.run
+        .withSuccessHandler(function() {
+          showToast("☁️ 已自動儲存至 Google Sheet");
+        })
+        .withFailureHandler(function(err) {
+          showToast("自動儲存失敗: " + err.message);
+        })
+        .saveDayRecords(dateStr, snapshot);
+    }
+
+    // 取消尚未觸發的自動儲存 (不送出)
+    function cancelAutoSave() {
+      if (autoSaveTimer) { clearTimeout(autoSaveTimer); autoSaveTimer = null; }
+      pendingSaveDate = null;
     }
 
     // 新增自訂動作至選單
@@ -1219,6 +1264,7 @@
         currentWorkout.push({ name: name, sets: [{ weight: 0, reps: 0, note: '' }], difficulty: 'normal' });
       }
       renderWorkout();
+      scheduleAutoSave();
     }
 
     // 為指定動作新增下一組
@@ -1226,6 +1272,7 @@
       if (currentWorkout[exIdx]) {
         currentWorkout[exIdx].sets.push({ weight: 0, reps: 0, note: '' });
         renderWorkout();
+        scheduleAutoSave();
       }
     }
 
@@ -1233,6 +1280,7 @@
     function deleteExercise(exIdx) {
       currentWorkout.splice(exIdx, 1);
       renderWorkout();
+      scheduleAutoSave();
     }
 
     // 刪除指定組數
@@ -1242,6 +1290,7 @@
         currentWorkout.splice(exIdx, 1);
       }
       renderWorkout();
+      scheduleAutoSave();
     }
 
     // 調整重量或次數 (±步進)
@@ -1253,6 +1302,7 @@
         set.reps = Math.max(0, (parseInt(set.reps) || 0) + delta);
       }
       renderWorkout();
+      scheduleAutoSave();
     }
 
     // 直接更新輸入框數值
@@ -1265,6 +1315,7 @@
       } else if (field === 'note') {
         set.note = value;
       }
+      scheduleAutoSave();
     }
 
     // 清空本日所有訓練紀錄
@@ -1273,6 +1324,7 @@
       if (confirm(confirmMsg)) {
         currentWorkout = [];
         renderWorkout();
+        scheduleAutoSave();
       }
     }
 
@@ -1280,6 +1332,7 @@
     function toggleDifficulty(exIdx, difficultyLevel) {
       currentWorkout[exIdx].difficulty = difficultyLevel;
       renderWorkout();
+      scheduleAutoSave();
     }
 
     // 渲染今日訓練表 (導入困難度動態色彩與更細密的 UI)
