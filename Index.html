@@ -1,0 +1,1669 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>FitSheet - 專屬智慧健身紀錄 App</title>
+  
+  <!-- iOS / Android 行動裝置 App 模式與 PWA 支援 -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FitSheet">
+  <meta name="mobile-web-app-capable" content="yes">
+  
+  <!-- 使用高解析度雲端 PNG 圖示 -->
+  <link rel="apple-touch-icon" href="https://img.icons8.com/ios-filled/180/10B981/dumbbell.png">
+  <link rel="icon" type="image/png" href="https://img.icons8.com/ios-filled/50/10B981/dumbbell.png">
+
+  <!-- Tailwind CSS 與動態自訂配置 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            slate: {
+              150: '#e2e8f0',
+              850: '#1e293b'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- 動態色彩樣式區 (透過 JS 動態複寫以實作調色盤自訂與彩虹六色漸層) -->
+  <style id="dynamic-theme-style">
+    .theme-accent-text { color: #10b981 !important; }
+    .theme-accent-text svg { stroke: currentColor !important; }
+    .theme-accent-bg { background-color: #10b981 !important; color: #000000 !important; }
+    .theme-accent-border { border-color: #10b981 !important; }
+    .loading-spinner { border-top-color: #10b981 !important; }
+  </style>
+
+  <style>
+    body {
+      font-family: 'Outfit', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    /* 隱藏滾動條 */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .loading-spinner {
+      border: 3px solid rgba(243, 244, 246, 0.3);
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    /* 針對手機版下方安全區進行底邊距優化 */
+    @media (max-width: 768px) {
+      .safe-bottom-padding {
+        padding-bottom: 90px;
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col safe-bottom-padding transition-colors duration-300">
+
+  <!-- SVG 彩虹漸層定義 (用於圖示與 SVG 線條漸層顏色對接) -->
+  <svg width="0" height="0" class="absolute pointer-events-none" aria-hidden="true">
+    <defs>
+      <linearGradient id="rainbow-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#ff4b4b" />
+        <stop offset="20%" stop-color="#ff7f00" />
+        <stop offset="40%" stop-color="#ffdd00" />
+        <stop offset="60%" stop-color="#00e676" />
+        <stop offset="80%" stop-color="#00b0ff" />
+        <stop offset="100%" stop-color="#aa00ff" />
+      </linearGradient>
+    </defs>
+  </svg>
+
+  <!-- 全局讀取遮罩 -->
+  <div id="globalLoader" class="fixed inset-0 bg-white/95 dark:bg-slate-950/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center text-slate-900 dark:text-white space-y-4">
+    <div class="loading-spinner w-12 h-12 border-4"></div>
+    <p class="text-sm font-semibold tracking-wider theme-accent-text animate-pulse" id="loaderText">與 Google Sheet 連線中...</p>
+  </div>
+
+  <!-- 桌機版頂部導覽列 (md:flex 隱藏/顯示) -->
+  <header class="hidden md:block bg-white/90 dark:bg-slate-950/90 border-b border-slate-200 dark:border-slate-800/80 sticky top-0 z-40 backdrop-blur-md transition-colors duration-300">
+    <div class="max-w-5xl mx-auto px-6 py-4 flex justify-between items-center">
+      <div class="flex items-center space-x-3">
+        <div class="theme-accent-bg p-2 rounded-xl shadow-lg transition-all duration-300">
+          <i data-lucide="dumbbell" class="h-5 w-5 stroke-[2.5]"></i>
+        </div>
+        <div>
+          <span class="font-bold text-base tracking-wider block text-slate-900 dark:text-white">FitSheet</span>
+          <span class="text-[10px] text-slate-500 dark:text-slate-400 block -mt-1" id="desktopSubTitle">Google Sheet 雲端連動版</span>
+        </div>
+      </div>
+      
+      <!-- 桌機分頁導覽 -->
+      <nav class="flex items-center space-x-1">
+        <button onclick="switchTab('workout')" class="tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center gap-1.5" data-tab="workout">
+          <i data-lucide="dumbbell" class="h-4 w-4"></i><span data-t="nav_workout">訓練</span>
+        </button>
+        <button onclick="switchTab('share')" class="tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center gap-1.5" data-tab="share">
+          <i data-lucide="share-2" class="h-4 w-4"></i><span data-t="nav_share">分享</span>
+        </button>
+        <button onclick="switchTab('manage')" class="tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center gap-1.5" data-tab="manage">
+          <i data-lucide="settings" class="h-4 w-4"></i><span data-t="nav_manage">編輯動作</span>
+        </button>
+        <button onclick="switchTab('guide')" class="tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center gap-1.5" data-tab="guide">
+          <i data-lucide="book-open" class="h-4 w-4"></i><span data-t="nav_guide">使用說明</span>
+        </button>
+        <button onclick="switchTab('settings')" class="tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center gap-1.5" data-tab="settings">
+          <i data-lucide="sliders" class="h-4 w-4"></i><span data-t="nav_settings">連動設定</span>
+        </button>
+      </nav>
+
+      <div class="flex items-center gap-2">
+        <select id="langSelectDesktop" onchange="changeLanguage(this.value)" class="bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-300 focus:outline-none">
+          <option value="zh">繁體中文</option>
+          <option value="en">English</option>
+          <option value="ja">日本語</option>
+          <option value="ko">한국어</option>
+        </select>
+        <a id="sheetLink" href="#" target="_blank" class="text-xs bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 rounded-xl transition flex items-center gap-1.5 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800">
+          <i data-lucide="external-link" class="h-3.5 w-3.5"></i> <span data-t="open_sheet">開啟試算表</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主內容容器 -->
+  <main class="max-w-4xl mx-auto px-4 mt-6 flex-grow w-full space-y-6 animate-fadeIn">
+
+    <!-- ================= 1. 訓練分頁 (Workout Tab) ================= -->
+    <div id="view-workout" class="tab-content space-y-6">
+      <!-- 日期控制區 -->
+      <section class="bg-white dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-4 shadow-xl backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors duration-300">
+        <div class="flex items-center space-x-3">
+          <div class="bg-slate-100 dark:bg-slate-800/40 p-3 rounded-xl theme-accent-text transition-colors duration-300">
+            <i data-lucide="calendar" class="h-5 w-5"></i>
+          </div>
+          <div>
+            <span class="text-[10px] text-slate-500 dark:text-slate-400 font-semibold block uppercase tracking-wider" data-t="record_date">紀錄日期</span>
+            <input type="date" id="selectedDate" onchange="loadRecordsForDate()" class="font-bold text-slate-800 dark:text-slate-100 bg-transparent focus:outline-none cursor-pointer border-b border-dashed border-slate-300 dark:border-slate-700 focus:theme-accent-border pb-0.5">
+          </div>
+        </div>
+        <div class="flex gap-2 self-end sm:self-auto">
+          <button onclick="setToday()" class="px-3 py-1.5 text-xs font-semibold bg-slate-100 dark:bg-slate-850 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl transition" data-t="btn_today">
+            今天
+          </button>
+          <button onclick="shiftDate(-1)" class="p-1.5 text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-850 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition">
+            <i data-lucide="chevron-left" class="h-4 w-4"></i>
+          </button>
+          <button onclick="shiftDate(1)" class="p-1.5 text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-850 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition">
+            <i data-lucide="chevron-right" class="h-4 w-4"></i>
+          </button>
+        </div>
+      </section>
+
+      <!-- 新增動作控制台 -->
+      <section class="bg-white dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-5 shadow-xl space-y-4 transition-colors duration-300">
+        <h2 class="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+          <i data-lucide="plus-circle" class="h-4.5 w-4.5 theme-accent-text animate-pulse"></i>
+          <span data-t="add_today_workout">新增今日動作</span>
+        </h2>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="sm:col-span-2">
+            <select id="exerciseSelect" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-3 text-xs focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-slate-800 text-slate-800 dark:text-slate-200">
+              <!-- 動態載入動作選單 -->
+            </select>
+          </div>
+          <button onclick="addExerciseToWorkout()" class="w-full theme-accent-bg hover:opacity-90 font-bold text-xs py-3 px-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2">
+            <i data-lucide="plus" class="h-4 w-4"></i> <span data-t="btn_add_to_list">新增至今日清單</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- 今日訓練明細 -->
+      <section class="bg-white dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-5 shadow-xl min-h-[350px] flex flex-col justify-between transition-colors duration-300">
+        <div>
+          <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-200 dark:border-slate-800">
+            <h2 class="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+              <i data-lucide="activity" class="h-4 w-4 theme-accent-text"></i>
+              <span data-t="today_records">今日訓練紀錄</span> <span id="exerciseCount" class="text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-full">0</span>
+            </h2>
+            <button onclick="clearDayRecords()" class="text-xs text-rose-600 dark:text-rose-400 hover:text-rose-505 flex items-center gap-1 font-semibold transition">
+              <i data-lucide="trash-2" class="h-3.5 w-3.5"></i> <span data-t="btn_clear_day">清空本日</span>
+            </button>
+          </div>
+
+          <!-- 訓練內容與狀態區 -->
+          <div class="relative">
+            <!-- 空白狀態 -->
+            <div id="emptyState" class="flex flex-col items-center justify-center py-20 text-slate-400 dark:text-slate-500 space-y-3">
+              <div class="bg-slate-100 dark:bg-slate-900 p-4 rounded-full border border-slate-200 dark:border-slate-800">
+                <i data-lucide="calendar-days" class="h-8 w-8 text-slate-400 dark:text-slate-600"></i>
+              </div>
+              <p class="text-xs font-semibold text-slate-600 dark:text-slate-400" data-t="no_data_title">這天還沒有輸入任何健身資料唷！</p>
+              <p class="text-[10px] text-slate-550" data-t="no_data_desc">請從上方選擇動作後，點擊新增</p>
+            </div>
+
+            <!-- 動態課表內容區 -->
+            <div id="workoutContainer" class="space-y-4"></div>
+          </div>
+        </div>
+
+        <!-- 保存按鈕區 -->
+        <div class="mt-8 pt-4 border-t border-slate-200 dark:border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <span class="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
+            <i data-lucide="info" class="h-3.5 w-3.5"></i> <span data-t="auto_save_tip">修改完成後，請點擊右方保存至雲端</span>
+          </span>
+          <button onclick="saveRecordsToSheet()" class="theme-accent-bg hover:opacity-90 font-bold text-xs py-3 px-6 rounded-xl shadow-md transition flex items-center gap-2 w-full sm:w-auto justify-center">
+            <i data-lucide="cloud-upload" class="h-4 w-4"></i> <span data-t="btn_save_sheet">保存至 Google Sheet</span>
+          </button>
+        </div>
+      </section>
+    </div>
+
+
+    <!-- ================= 2. 分享分頁 (Share Tab) ================= -->
+    <div id="view-share" class="tab-content hidden space-y-6">
+      <section class="bg-white dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-5 shadow-xl space-y-6 transition-colors duration-300">
+        <h2 class="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
+          <i data-lucide="share-2" class="h-5 w-5 theme-accent-text"></i>
+          <span data-t="nav_share">分享</span>
+        </h2>
+
+        <!-- 分享時間維度選擇 -->
+        <div class="grid grid-cols-4 gap-2 bg-slate-100 dark:bg-slate-900 p-1.5 rounded-xl border border-slate-200 dark:border-slate-800">
+          <button onclick="setSharePeriod('day')" id="btn-share-day" class="share-period-btn py-2 text-xs font-bold rounded-lg transition-all theme-accent-text bg-white dark:bg-slate-950 shadow" data-t="share_day">每日</button>
+          <button onclick="setSharePeriod('week')" id="btn-share-week" class="share-period-btn py-2 text-xs font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white" data-t="share_week">每週</button>
+          <button onclick="setSharePeriod('month')" id="btn-share-month" class="share-period-btn py-2 text-xs font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white" data-t="share_month">每月</button>
+          <button onclick="setSharePeriod('year')" id="btn-share-year" class="share-period-btn py-2 text-xs font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white" data-t="share_year">每年</button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- 樣式設定區 -->
+          <div class="space-y-4">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400" data-t="share_style_settings">樣式調整</h3>
+            
+            <div class="space-y-3 bg-slate-50/50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800/50 transition-colors duration-300">
+              <!-- 文字顏色 -->
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1" data-t="share_text_color">文字顏色</label>
+                <div class="flex gap-2">
+                  <input type="color" id="shareTextColor" onchange="updateSharePreview()" value="#10B981" class="bg-transparent h-8 w-12 cursor-pointer border-0 rounded">
+                  <span class="text-xs text-slate-500 dark:text-slate-400 self-center">預設為當前主色調</span>
+                </div>
+              </div>
+
+              <!-- 去背切換 -->
+              <div class="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-800">
+                <div>
+                  <span class="text-[11px] font-bold text-slate-700 dark:text-slate-300 block" data-t="share_transparent_bg">去背透明背景</span>
+                  <span class="text-[10px] text-slate-500 dark:text-slate-550 block">開啟後，生成的圖檔背景為透明，可完美貼上 IG 限動</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="shareTransBg" checked onchange="updateSharePreview()" class="sr-only peer">
+                  <div class="w-11 h-6 bg-slate-350 dark:bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-100 after:border-slate-300 dark:after:border-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                </label>
+              </div>
+            </div>
+
+            <!-- 控制按鈕 -->
+            <div class="space-y-2">
+              <button onclick="copyShareText()" class="w-full bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 font-bold text-xs py-3 px-4 rounded-xl transition flex items-center justify-center gap-2">
+                <i data-lucide="copy" class="h-4 w-4"></i> <span data-t="btn_copy_text">複製分享文字</span>
+              </button>
+              <button onclick="generateShareImage()" class="w-full theme-accent-bg hover:opacity-90 font-bold text-xs py-3 px-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+                <i data-lucide="image" class="h-4 w-4"></i> <span data-t="btn_gen_ig_image">產生 IG 去背圖 (PNG)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 分享預覽區 -->
+          <div class="space-y-2">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400" data-t="share_preview">預覽畫面</h3>
+            <div id="shareTextPreviewContainer" class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 max-h-[300px] overflow-auto text-xs font-mono whitespace-pre-line text-emerald-400 leading-relaxed transition-colors duration-300">
+              <!-- 系統動態載入文字預覽 -->
+            </div>
+            <!-- Canvas 虛擬渲染元件 (平常隱藏) -->
+            <canvas id="shareCanvas" class="hidden"></canvas>
+          </div>
+        </div>
+      </section>
+    </div>
+
+
+    <!-- ================= 3. 編輯動作分頁 (Manage Tab) ================= -->
+    <div id="view-manage" class="tab-content hidden space-y-6">
+      <section class="bg-white dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-5 shadow-xl space-y-4 transition-colors duration-300">
+        <div class="flex justify-between items-center pb-3 border-b border-slate-200 dark:border-slate-800">
+          <h2 class="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+            <i data-lucide="settings" class="h-4.5 w-4.5 theme-accent-text"></i>
+            <span data-t="nav_manage">編輯動作</span>
+          </h2>
+          <button onclick="importAllDefaultExercises()" class="text-xs theme-accent-text hover:opacity-85 font-bold flex items-center gap-1 bg-slate-100 dark:bg-emerald-950/50 border border-slate-200 dark:border-emerald-900/30 px-3 py-1.5 rounded-xl transition" title="一鍵匯入 40 種預設熱門動作">
+            <i data-lucide="download-cloud" class="h-3.5 w-3.5"></i> <span data-t="btn_import_40">匯入 40 種熱門動作</span>
+          </button>
+        </div>
+
+        <!-- 動作庫表單 -->
+        <div class="space-y-3 pt-2">
+          <div>
+            <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1" data-t="manage_name">動作名稱</label>
+            <input type="text" id="newExerciseName" placeholder="例如：啞鈴上斜臥推" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-emerald-500 text-slate-800 dark:text-slate-100">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1" data-t="manage_category">分類群組</label>
+            <select id="newExerciseGroup" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-emerald-500 text-slate-700 dark:text-slate-300">
+              <option value="徒手訓練 (Bodyweight)">徒手訓練 (Bodyweight)</option>
+              <option value="自由重量 (Free Weights)">自由重量 (Free Weights)</option>
+              <option value="機械器材 (Machines)">機械器材 (Machines)</option>
+              <option value="繩索訓練 (Cables)">繩索訓練 (Cables)</option>
+              <option value="核心與其他 (Core & Others)">核心與其他 (Core & Others)</option>
+            </select>
+          </div>
+          <button onclick="addNewExerciseToMenu()" class="w-full bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-755 text-slate-800 dark:text-white font-semibold text-xs py-2.5 rounded-xl transition">
+            + 新增動作至雲端選單
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <!-- ================= 4. 說明分頁 (Guide Tab) ================= -->
+    <div id="view-guide" class="tab-content hidden space-y-6">
+      <!-- 頂部：健身房使用說明 -->
+      <section class="bg-white dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-6 shadow-xl space-y-4 transition-colors duration-300">
+        <h2 class="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
+          <i data-lucide="book-open" class="h-5 w-5 theme-accent-text"></i>
+          <span data-t="nav_guide">使用說明</span>
+        </h2>
+        <div class="prose dark:prose-invert prose-xs text-slate-700 dark:text-slate-300 leading-relaxed space-y-3">
+          <p class="font-semibold theme-accent-text">健身房操作提示與小細節：</p>
+          <ul class="list-disc pl-5 space-y-2">
+            <li><strong>0.5kg 微超載控制</strong>：重量增減每次點擊皆為精密 0.5kg，最適合微調與漸進式超負荷。</li>
+            <li><strong>困難度標籤（智能卡色）</strong>：新增動作後，可以隨時選取「簡單/正常/困難」，對應綠、黃、紅色彩邊框，幫助追蹤每次動作的力竭與體感回饋。</li>
+            <li><strong>極限 1RM 自動估算</strong>：系統會自動採用著名 $1RM = 重量 \times (1 + 次數/30)$ 公式幫您推估最大重量。</li>
+            <li><strong>離線本地存取保護</strong>：即使當下健身房地下室收訊不良，資料也能完整保存在手機瀏覽器暫存內，不遺失進度。</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- 手機安裝與建立副本說明區塊 (合併為單一卡片樣式，與[使用說明]完美一致) -->
+      <section class="bg-white dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-6 shadow-xl space-y-6 transition-colors duration-300">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 divide-y md:divide-y-0 md:divide-x divide-slate-200 dark:divide-slate-800/60">
+          <!-- 左側：手機安裝為 App 指南 -->
+          <div class="space-y-4">
+            <h3 class="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
+              <i data-lucide="smartphone" class="h-5 w-5 theme-accent-text"></i> <span data-t="guide_title">手機安裝為 App 指南</span>
+            </h3>
+            <p class="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed" data-t="guide_desc">
+              將此網頁加到您的手機桌面，即可擁有精美的 App 圖示並享有更流暢的全螢幕健身房紀錄體驗！
+            </p>
+            <div class="text-[11px] space-y-2 text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-800/60">
+              <div class="flex items-start gap-1">
+                <span class="font-bold theme-accent-text">iOS:</span>
+                <span>用 <strong class="text-slate-800 dark:text-slate-200">Safari</strong> 開啟 ➔ 點擊下方「<strong class="text-slate-800 dark:text-slate-200">分享</strong>」按鈕 ➔ 選擇「<strong class="text-slate-800 dark:text-slate-200">加入主畫面</strong>」➔ 完成！</span>
+              </div>
+              <div class="flex items-start gap-1">
+                <span class="font-bold theme-accent-text">Android:</span>
+                <span>用 <strong class="text-slate-800 dark:text-slate-200">Chrome</strong> 開啟 ➔ 點擊右上角「<strong class="text-slate-200">三點選單</strong>」➔ 選擇「<strong class="text-slate-800 dark:text-slate-200">安裝應用程式</strong>」或「<strong class="text-slate-800 dark:text-slate-200">新增至主畫面</strong>」➔ 完成！</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 右側：複製使用說明 / 連動說明 -->
+          <div class="space-y-4 pt-6 md:pt-0 md:pl-8 flex flex-col justify-between">
+            <div class="space-y-4">
+              <h3 class="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2" id="helpHeader">
+                <i data-lucide="copy" class="h-5 w-5 theme-accent-text"></i> <span data-t="help_title">想要建立自己的副本？</span>
+              </h3>
+              <p class="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed mt-1" data-t="help_desc">
+                這套系統支援完全複製！請點擊下方「開啟試算表」後，於 Google 試算表中點選<strong>「檔案」 > 「建立副本」</strong>。接著在您的副本中部署為 Web App，就能擁有專屬的連結囉！
+              </p>
+              
+              <!-- 開啟試算表按鈕 -->
+              <div class="pt-2">
+                <a id="sheetLinkGuide" href="#" target="_blank" class="inline-flex items-center gap-1.5 text-xs theme-accent-bg hover:opacity-90 font-bold px-4 py-2.5 rounded-xl transition-all shadow-md">
+                  <i data-lucide="external-link" class="h-3.5 w-3.5"></i> <span data-t="open_sheet">開啟試算表</span>
+                </a>
+              </div>
+            </div>
+            <div class="text-[10px] theme-accent-text mt-4 flex items-center gap-1 font-semibold border-t border-slate-200 dark:border-slate-800/60 pt-3">
+              <i data-lucide="check" class="h-3.5 w-3.5"></i> <span data-t="help_tag">開源共享，自由修改與推廣</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+
+    <!-- ================= 5. 設定分頁 (Settings Tab) ================= -->
+    <div id="view-settings" class="tab-content hidden space-y-6">
+      <section class="bg-white dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-6 shadow-xl space-y-6 transition-colors duration-300">
+        <h2 class="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
+          <i data-lucide="sliders" class="h-5 w-5 theme-accent-text"></i>
+          <span data-t="nav_settings">連動設定</span>
+        </h2>
+        
+        <div class="space-y-6">
+          <!-- 語系設定 -->
+          <div class="space-y-2">
+            <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2" data-t="lang_settings_label">介面語言 (Language)</label>
+            <select id="langSelectSettings" onchange="changeLanguage(this.value)" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none">
+              <option value="zh">繁體中文</option>
+              <option value="en">English</option>
+              <option value="ja">日本語</option>
+              <option value="ko">한국어</option>
+            </select>
+          </div>
+
+          <!-- 1. 介面佈景主題設定 (白天/晚上) -->
+          <div class="space-y-2 pt-4 border-t border-slate-200 dark:border-slate-800">
+            <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">介面主題樣式 (App Theme)</label>
+            <div class="grid grid-cols-2 gap-3">
+              <button onclick="setThemeMode('light')" id="themeBtnLight" class="px-4 py-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
+                <i data-lucide="sun" class="h-4 w-4"></i> 白天模式 (Light Mode)
+              </button>
+              <button onclick="setThemeMode('dark')" id="themeBtnDark" class="px-4 py-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
+                <i data-lucide="moon" class="h-4 w-4"></i> 夜間模式 (Dark Mode)
+              </button>
+            </div>
+          </div>
+
+          <!-- 2. 主色調與文字自訂 (調色盤自訂顏色、彩虹六色漸層色) -->
+          <div class="space-y-2 pt-4 border-t border-slate-200 dark:border-slate-800">
+            <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">主色調與文字自訂 (Color Customization)</label>
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <!-- 調色盤選色區 -->
+              <div class="flex items-center gap-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 flex-grow">
+                <input type="color" id="appThemeColorPicker" onchange="changeThemeColor(this.value)" class="h-8 w-12 cursor-pointer border-0 bg-transparent rounded-lg">
+                <span class="text-xs text-slate-500 dark:text-slate-400">調色盤自訂顏色</span>
+              </div>
+              
+              <!-- 特製彩虹漸層按鈕 -->
+              <button onclick="enableRainbowAccent()" id="rainbowThemeBtn" class="px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 shadow-lg hover:opacity-90 transition flex items-center justify-center gap-1.5 animate-pulse">
+                <i data-lucide="sparkles" class="h-4 w-4 text-yellow-200"></i> 彩虹漸層色
+              </button>
+              
+              <!-- 還原預設綠按鈕 -->
+              <button onclick="resetThemeColor()" class="px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-850 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition flex items-center justify-center gap-1.5">
+                <i data-lucide="rotate-ccw" class="h-4 w-4"></i> 還原預設綠
+              </button>
+            </div>
+          </div>
+
+          <div class="pt-4 border-t border-slate-200 dark:border-slate-800/80">
+            <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              此語系與主題設定同時支援本地暫存。如果您的試算表新增了「語系」工作表，系統將會與試算表進行動態語系解析與存取同步。
+            </p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+  </main>
+
+  <!-- 手機版底部導覽列 (md:hidden 隱藏/顯示) -->
+  <nav class="md:hidden fixed bottom-0 inset-x-0 bg-white/95 dark:bg-slate-950/95 border-t border-slate-200 dark:border-slate-850 px-2 py-2 flex justify-around items-center z-40 backdrop-blur-md transition-colors duration-300">
+    <button onclick="switchTab('workout')" class="tab-btn-mobile flex flex-col items-center py-1 flex-1 text-slate-400 active:text-slate-900 dark:active:text-emerald-400 transition gap-1" data-tab="workout">
+      <i data-lucide="dumbbell" class="h-5 w-5"></i>
+      <span class="text-[9px] font-medium" data-t="nav_workout">訓練</span>
+    </button>
+    <button onclick="switchTab('share')" class="tab-btn-mobile flex flex-col items-center py-1 flex-1 text-slate-400 active:text-slate-900 dark:active:text-emerald-400 transition gap-1" data-tab="share">
+      <i data-lucide="share-2" class="h-5 w-5"></i>
+      <span class="text-[9px] font-medium" data-t="nav_share">分享</span>
+    </button>
+    <button onclick="switchTab('manage')" class="tab-btn-mobile flex flex-col items-center py-1 flex-1 text-slate-400 active:text-slate-900 dark:active:text-emerald-400 transition gap-1" data-tab="manage">
+      <i data-lucide="settings" class="h-5 w-5"></i>
+      <span class="text-[9px] font-medium" data-t="nav_manage">編輯動作</span>
+    </button>
+    <button onclick="switchTab('guide')" class="tab-btn-mobile flex flex-col items-center py-1 flex-1 text-slate-400 active:text-slate-900 dark:active:text-emerald-400 transition gap-1" data-tab="guide">
+      <i data-lucide="book-open" class="h-5 w-5"></i>
+      <span class="text-[9px] font-medium" data-t="nav_guide">說明</span>
+    </button>
+    <button onclick="switchTab('settings')" class="tab-btn-mobile flex flex-col items-center py-1 flex-1 text-slate-400 active:text-slate-900 dark:active:text-emerald-400 transition gap-1" data-tab="settings">
+      <i data-lucide="sliders" class="h-5 w-5"></i>
+      <span class="text-[9px] font-medium" data-t="nav_settings">設定</span>
+    </button>
+  </nav>
+
+  <!-- 圖片分享彈出視窗 (Modal) -->
+  <div id="imageModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md hidden">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-sm p-5 m-4 shadow-2xl relative space-y-4 animate-scaleUp text-slate-900 dark:text-slate-100">
+      <button onclick="closeImageModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-white transition">
+        <i data-lucide="x" class="h-5 w-5"></i>
+      </button>
+      <div class="flex items-center space-x-2.5">
+        <div class="bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center h-8 w-8 text-emerald-400">
+          <i data-lucide="image" class="h-4.5 w-4.5"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">已生成分享圖</h3>
+          <p class="text-[10px] text-slate-505 dark:text-slate-400">點擊按鈕直接複製，或長按圖片儲存</p>
+        </div>
+      </div>
+      
+      <!-- 渲染預覽圖區 -->
+      <div class="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-950/30 p-2 flex justify-center max-h-[320px]">
+        <img id="modalPreviewImage" class="max-h-[300px] object-contain rounded-lg shadow-inner" src="" alt="Share Preview">
+      </div>
+      
+      <div class="flex flex-col gap-2">
+        <button onclick="copyImageToClipboard()" class="w-full theme-accent-bg hover:opacity-90 font-bold py-2.5 rounded-xl transition text-xs flex items-center justify-center gap-1.5 shadow-lg">
+          <i data-lucide="copy" class="h-3.5 w-3.5"></i> 一鍵複製圖片 (貼至 IG 限動)
+        </button>
+        <button onclick="closeImageModal()" class="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-300 font-semibold py-2 rounded-xl transition text-xs">
+          關閉
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast 通知 -->
+  <div id="toast" class="fixed bottom-6 right-6 bg-slate-800 text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 text-sm transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none z-50">
+    <i data-lucide="check-circle" class="text-emerald-400 h-4 w-4"></i>
+    <span id="toastMessage">儲存成功</span>
+  </div>
+
+  <script>
+    // --- GAS 環境相容性安全防護 (避免在非 GAS 環境預覽時卡在讀取中) ---
+    if (typeof google === 'undefined' || !google.script || !google.script.run) {
+      window.google = {
+        script: {
+          run: {
+            withSuccessHandler: function(successCallback) {
+              return {
+                withFailureHandler: function(failureCallback) {
+                  return {
+                    getSpreadsheetUrl: function() {
+                      setTimeout(() => successCallback("https://docs.google.com/spreadsheets"), 300);
+                    },
+                    getExerciseMenu: function() {
+                      setTimeout(() => successCallback(MOCK_DEFAULT_MENU), 300);
+                    },
+                    getRecordsByDate: function(dateStr) {
+                      const localData = localStorage.getItem('fitsheet_workout_' + dateStr);
+                      const records = localData ? JSON.parse(localData) : [];
+                      setTimeout(() => successCallback(records), 300);
+                    },
+                    saveDayRecords: function(dateStr, workoutList) {
+                      localStorage.setItem('fitsheet_workout_' + dateStr, JSON.stringify(workoutList));
+                      setTimeout(() => successCallback({ success: true }), 300);
+                    },
+                    addCustomExerciseToSheet: function(name, group) {
+                      MOCK_DEFAULT_MENU.push({ name: name, group: group });
+                      setTimeout(() => successCallback({ success: true }), 300);
+                    },
+                    resetExerciseMenuToDefault: function() {
+                      setTimeout(() => successCallback({ success: true }), 300);
+                    }
+                  };
+                }
+              };
+            }
+          }
+        }
+      };
+    }
+
+    // --- 國際化多語系本地字典群組 ---
+    const TRANSLATIONS = {
+      zh: {
+        nav_workout: "訓練",
+        nav_share: "分享",
+        nav_manage: "編輯動作",
+        nav_guide: "使用說明",
+        nav_settings: "連動設定",
+        open_sheet: "開啟試算表",
+        record_date: "紀錄日期",
+        btn_today: "今天",
+        add_today_workout: "新增今日動作",
+        btn_add_to_list: "新增至今日清單",
+        today_records: "今日訓練紀錄",
+        btn_clear_day: "清空本日",
+        no_data_title: "這天還沒有輸入任何健身資料唷！",
+        no_data_desc: "請從左側選擇動作後，點擊新增",
+        auto_save_tip: "修改完成後，請點擊右方保存至雲端",
+        btn_save_sheet: "保存至 Google Sheet",
+        btn_import_40: "匯入 40 種熱門動作",
+        manage_name: "動作名稱",
+        manage_category: "分類群組",
+        guide_title: "手機安裝為 App 指南",
+        guide_desc: "將此網頁加到您的手機桌面，即可擁有精美的 App 圖示並享有更流暢的全螢幕健身房紀錄體驗！",
+        help_title: "想要建立自己的副本？",
+        help_desc: "這套系統支援完全複製！請點擊右上角「開啟試算表」後，於 Google 試算表中點選「檔案」 > 「建立副本」。接著在您的副本中部署為 Web App，就能擁有專屬的連結囉！",
+        help_tag: "開源共享，自由修改與推廣",
+        share_day: "每日",
+        share_week: "每週",
+        share_month: "每月",
+        share_year: "每年",
+        share_style_settings: "樣式調整",
+        share_text_color: "文字顏色",
+        share_transparent_bg: "去背透明背景",
+        btn_copy_text: "複製分享文字",
+        btn_gen_ig_image: "產生 IG 去背圖 (PNG)",
+        share_preview: "預覽畫面",
+        difficulty_easy: "簡單",
+        difficulty_normal: "正常",
+        difficulty_hard: "困難",
+        lang_settings_label: "介面語言 (Language)"
+      },
+      en: {
+        nav_workout: "Workout",
+        nav_share: "Share",
+        nav_manage: "Edit Exercises",
+        nav_guide: "Manual",
+        nav_settings: "Sync Config",
+        open_sheet: "Open Google Sheet",
+        record_date: "Record Date",
+        btn_today: "Today",
+        add_today_workout: "Add Exercise for Today",
+        btn_add_to_list: "Add to Current List",
+        today_records: "Today's Workouts",
+        btn_clear_day: "Clear Day",
+        no_data_title: "No workout records found for this date!",
+        no_data_desc: "Please select an exercise from left and click Add.",
+        auto_save_tip: "Click save on the right to sync to Google Sheets.",
+        btn_save_sheet: "Save to Google Sheet",
+        btn_import_40: "Import 40 Exercises",
+        manage_name: "Exercise Name",
+        manage_category: "Category Group",
+        guide_title: "Install as Mobile App",
+        guide_desc: "Add this website to your mobile homescreen to get a beautifully designed app icon and a smooth fullscreen native experience!",
+        help_title: "Make Your Own Copy?",
+        help_desc: "This system supports 1-click duplication! Open the Google Sheet, go to 'File' > 'Make a copy'. Then deploy Apps Script as Web App in your own copy to get your custom link!",
+        help_tag: "Open Source - Free to Modify & Share",
+        share_day: "Daily",
+        share_week: "Weekly",
+        share_month: "Monthly",
+        share_year: "Yearly",
+        share_style_settings: "Styles Configuration",
+        share_text_color: "Text Color",
+        share_transparent_bg: "Transparent BG",
+        btn_copy_text: "Copy Share Text",
+        btn_gen_ig_image: "Generate IG Image (PNG)",
+        share_preview: "Preview Canvas",
+        difficulty_easy: "Easy",
+        difficulty_normal: "Normal",
+        difficulty_hard: "Hard",
+        lang_settings_label: "Interface Language"
+      },
+      ja: {
+        nav_workout: "トレーニング",
+        nav_share: "シェア",
+        nav_manage: "種目編集",
+        nav_guide: "マニュアル",
+        nav_settings: "連動設定",
+        open_sheet: "スプレッドシートを開く",
+        record_date: "記録日",
+        btn_today: "今日",
+        add_today_workout: "今日のトレーニング種目を追加",
+        btn_add_to_list: "今日のリストに追加",
+        today_records: "本日のトレーニング履歴",
+        btn_clear_day: "本日分を消去",
+        no_data_title: "この日のトレーニング履歴はありません！",
+        no_data_desc: "上のメニューから種目を選び、追加をクリックしてください",
+        auto_save_tip: "完了後、右側の保存ボタンを押してスプレッドシートと同期します",
+        btn_save_sheet: "スプレッドシートに保存",
+        btn_import_40: "40種類の人気種目をインポート",
+        manage_name: "種目名",
+        manage_category: "カテゴリー",
+        guide_title: "ホーム画面に追加",
+        guide_desc: "このサイトをスマートフォンのホーム画面に追加すると、美しいアプリアイコンと快適な全画面ネイティブアプリ体験が楽しめます！",
+        help_desc: "このシステムは完全な複製に対応しています！右上からシートを開き、メニュー的「ファイル」 > 「コピーを作成」をクリック。GASをウェブアプリとして投デプロ言すれば完了です！",
+        help_title: "自身のコピーを作成しますか？",
+        help_desc: "このシステムは完全なコピーに対応しています！右上のスプレッドシートを開き、「ファイル」＞「コピーを作成」をクリック。コピーしたGASをWeb Appとしてデプロ建立して専用URLを取得してください！",
+        help_tag: "オープンソース、自由に変更可能",
+        share_day: "毎日",
+        share_week: "毎週",
+        share_month: "毎月",
+        share_year: "毎年",
+        share_style_settings: "スタイル設定",
+        share_text_color: "テキストカラー",
+        share_transparent_bg: "背景透過処理",
+        btn_copy_text: "共有テキストをコピー",
+        btn_gen_ig_image: "IG透過画像を作成 (PNG)",
+        share_preview: "プレビュー",
+        difficulty_easy: "イージー",
+        difficulty_normal: "ノーマル",
+        difficulty_hard: "ハード",
+        lang_settings_label: "システム言語"
+      },
+      ko: {
+        nav_workout: "운동 기록",
+        nav_share: "공유",
+        nav_manage: "종목 편집",
+        nav_guide: "설명서",
+        nav_settings: "연동 설정",
+        open_sheet: "구글 시트 열기",
+        record_date: "기록 날짜",
+        btn_today: "오늘",
+        add_today_workout: "오늘의 종목 추가",
+        btn_add_to_list: "목록에 추가",
+        today_records: "오늘의 운동 기록",
+        btn_clear_day: "오늘 기록 비우기",
+        no_data_title: "이 날짜의 운동 기록이 없습니다!",
+        no_data_desc: "왼쪽에서 운동 종목을 선택한 후 추가 버튼을 클릭해 주세요.",
+        auto_save_tip: "수정이 완료되면 오른쪽의 클라우드 저장을 눌러 시트와 동기화하세요.",
+        btn_save_sheet: "구글 시트에 저장",
+        btn_import_40: "인기 종목 40개 가져오기",
+        manage_name: "운동 종목명",
+        manage_category: "분류 그룹",
+        guide_title: "스마트폰 홈 화면에 추가",
+        guide_desc: "이 웹페이지를 스마트폰 홈 화면에 추가하면 멋진 앱 아이콘과 함께 브라우저 주소창이 없는 네이티브 앱 경험을 즐길 수 있습니다!",
+        help_title: "나만의 사본을 만드시겠습니까?",
+        help_desc: "이 시스템은 완벽한 사본 생성을 지원합니다! 시트를 열고 '파일' > '사본 만들기'를 클릭하세요. 사본에 탑재된 Apps Script를 웹 앱으로 배포하여 전용 링크를 확보할 수 있습니다!",
+        help_tag: "오픈 소스, 자유로운 수정 및 배포 환영",
+        share_day: "일간",
+        share_week: "주간",
+        share_month: "월간",
+        share_year: "연간",
+        share_style_settings: "스타일 조정",
+        share_text_color: "글자 색상",
+        share_transparent_bg: "배경 투명화",
+        btn_copy_text: "텍스트 복사",
+        btn_gen_ig_image: "IG용 투명 이미지 생성 (PNG)",
+        share_preview: "미리보기 화면",
+        difficulty_easy: "쉬움",
+        difficulty_normal: "보통",
+        difficulty_hard: "어려움",
+        lang_settings_label: "인터페이스 언어"
+      }
+    };
+
+    // 預設語言為繁體中文
+    let currentLang = 'zh';
+
+    // --- 運動難度定義常數 ---
+    const DIFFICULTY_CONFIG = {
+      easy: { 
+        text_zh: "簡單", 
+        text_en: "Easy", 
+        borderClass: "border-emerald-500/80 bg-emerald-50/50 dark:bg-emerald-950/20", 
+        textClass: "text-emerald-600 dark:text-emerald-400" 
+      },
+      normal: { 
+        text_zh: "正常", 
+        text_en: "Normal", 
+        borderClass: "border-amber-500/80 bg-amber-50/50 dark:bg-amber-950/20", 
+        textClass: "text-amber-600 dark:text-amber-400" 
+      },
+      hard: { 
+        text_zh: "困難", 
+        text_en: "Hard", 
+        borderClass: "border-rose-500/80 bg-rose-50/50 dark:bg-rose-950/20", 
+        textClass: "text-rose-600 dark:text-rose-400" 
+      }
+    };
+
+    // 動作數據結構
+    const MOCK_DEFAULT_MENU = [
+      { name: "引體向上 (Pull-Up)", group: "徒手訓練 (Bodyweight)" },
+      { name: "伏地挺身 (Push-Up)", group: "徒手訓練 (Bodyweight)" },
+      { name: "雙槓撐體 (Dips)", group: "徒手訓練 (Bodyweight)" },
+      { name: "徒手深蹲 (Bodyweight Squat)", group: "徒手訓練 (Bodyweight)" },
+      { name: "懸掛抬腿 (Hanging Leg Raise)", group: "徒手訓練 (Bodyweight)" },
+      { name: "羅馬椅背部伸展 (Hyperextension)", group: "徒手訓練 (Bodyweight)" },
+      { name: "仰臥起坐 (Sit-Up)", group: "徒手訓練 (Bodyweight)" },
+      { name: "棒式撐體 (Plank)", group: "徒手訓練 (Bodyweight)" },
+      { name: "波比跳 (Burpees)", group: "徒手訓練 (Bodyweight)" },
+      { name: "徒手保加利亞蹲 (Bodyweight Split Squat)", group: "徒手訓練 (Bodyweight)" },
+
+      { name: "槓鈴平貼臥推 (Barbell Bench Press)", group: "自由重量 (Free Weights)" },
+      { name: "啞鈴上斜臥推 (Incline Dumbbell Press)", group: "自由重量 (Free Weights)" },
+      { name: "槓鈴深蹲 (Barbell Squat)", group: "自由重量 (Free Weights)" },
+      { name: "羅馬尼亞硬舉 (Romanian Deadlift)", group: "自由重量 (Free Weights)" },
+      { name: "啞鈴單臂化船 (Single-Arm Dumbbell Row)", group: "自由重量 (Free Weights)" },
+      { name: "槓鈴劃船 (Barbell Row)", group: "自由重量 (Free Weights)" },
+      { name: "啞鈴肩推 (Dumbbell Shoulder Press)", group: "自由重量 (Free Weights)" },
+      { name: "啞鈴側平舉 (Dumbbell Lateral Raise)", group: "自由重量 (Free Weights)" },
+      { name: "啞鈴二頭肌彎舉 (Dumbbell Bicep Curl)", group: "自由重量 (Free Weights)" },
+      { name: "啞鈴錘式彎舉 (Dumbbell Hammer Curl)", group: "自由重量 (Free Weights)" },
+
+      { name: "機械胸推機 (Chest Press Machine)", group: "機械器材 (Machines)" },
+      { name: "蝴蝶機夾胸 (Pec Deck Flye)", group: "機械器材 (Machines)" },
+      { name: "反向飛鳥機 (Reverse Flye Machine)", group: "機械器材 (Machines)" },
+      { name: "機械腿推 (Leg Press Machine)", group: "機械器材 (Machines)" },
+      { name: "機械腿伸展 (Leg Extension Machine)", group: "機械器材 (Machines)" },
+      { name: "機械俯臥腿彎舉 (Lying Leg Curl Machine)", group: "機械器材 (Machines)" },
+      { name: "史密斯深蹲 (Smith Machine Squat)", group: "機械器材 (Machines)" },
+      { name: "機械座姿劃船 (Seated Machine Row)", group: "機械器材 (Machines)" },
+      { name: "機械肩推機 (Shoulder Press Machine)", group: "機械器材 (Machines)" },
+      { name: "站姿提踵機 (Standing Calf Raise Machine)", group: "機械器材 (Machines)" },
+
+      { name: "滑輪下拉 (Lat Pulldown)", group: "繩索訓練 (Cables)" },
+      { name: "繩索夾胸 (Cable Crossover)", group: "繩索訓練 (Cables)" },
+      { name: "繩索座姿劃船 (Seated Cable Row)", group: "繩索訓練 (Cables)" },
+      { name: "繩索三頭肌下拉 (Cable Tricep Pushdown)", group: "繩索訓練 (Cables)" },
+      { name: "繩索面拉 (Cable Face Pull)", group: "繩索訓練 (Cables)" },
+      { name: "繩索二頭肌彎舉 (Cable Bicep Curl)", group: "繩索訓練 (Cables)" },
+      { name: "繩索側平舉 (Cable Lateral Raise)", group: "繩索訓練 (Cables)" },
+      { name: "繩索腹肌下壓 (Cable Crunch)", group: "繩索訓練 (Cables)" },
+      { name: "繩索臀部後踢 (Cable Glute Kickback)", group: "繩索訓練 (Cables)" },
+      { name: "繩索直臂下壓 (Straight-Arm Cable Pulldown)", group: "繩索訓練 (Cables)" }
+    ];
+
+    // 儲存目前顯示日期的課表
+    let currentWorkout = [];
+    let exerciseMenu = [];
+    let sharePeriod = 'day'; // 分享維度預設為日
+
+    // --- 佈景主題、自訂顏色與彩虹漸層核心變數 ---
+    let currentTheme = 'dark';
+    let customColor = '#10B981';
+    let isRainbow = false;
+
+    // 計算對比前景色 (確保主色調在當前背景下的易讀性)
+    function getContrastColor(hex) {
+      if (hex.indexOf('#') === 0) hex = hex.slice(1);
+      if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+      const r = parseInt(hex.slice(0, 2), 16),
+            g = parseInt(hex.slice(2, 4), 16),
+            b = parseInt(hex.slice(4, 6), 16);
+      return (r * 299 + g * 587 + b * 114) / 1000 >= 140 ? '#0f172a' : '#ffffff';
+    }
+
+    // 初始化佈景與主色調
+    function initThemeAndColor() {
+      // 載入佈景主題 (白天/夜間)
+      currentTheme = localStorage.getItem('fitsheet_theme') || 'dark';
+      setThemeMode(currentTheme, false);
+
+      // 載入主色調顏色
+      customColor = localStorage.getItem('fitsheet_theme_color') || '#10B981';
+      isRainbow = localStorage.getItem('fitsheet_theme_is_rainbow') === 'true';
+
+      if (isRainbow) {
+        enableRainbowAccent(false);
+      } else {
+        changeThemeColor(customColor, false);
+      }
+    }
+
+    // 輔助函式：自訂主題按鈕樣式切換
+    function setThemeMode(mode, save = true) {
+      currentTheme = mode;
+      const htmlEl = document.documentElement;
+      
+      const themeBtnLight = document.getElementById('themeBtnLight');
+      const themeBtnDark = document.getElementById('themeBtnDark');
+
+      if (mode === 'light') {
+        htmlEl.classList.remove('dark');
+        if (themeBtnLight && themeBtnDark) {
+          themeBtnLight.classList.add('border-emerald-500', 'theme-accent-border', 'theme-accent-text', 'bg-white');
+          themeBtnDark.classList.remove('border-emerald-500', 'theme-accent-border', 'theme-accent-text', 'bg-white');
+        }
+      } else {
+        htmlEl.classList.add('dark');
+        if (themeBtnLight && themeBtnDark) {
+          themeBtnDark.classList.add('border-emerald-500', 'theme-accent-border', 'theme-accent-text', 'bg-slate-900');
+          themeBtnLight.classList.remove('border-emerald-500', 'theme-accent-border', 'theme-accent-text', 'bg-slate-900');
+        }
+      }
+
+      if (save) {
+        localStorage.setItem('fitsheet_theme', mode);
+      }
+    }
+
+    // 觸發調色盤自訂顏色
+    function changeThemeColor(color, save = true) {
+      isRainbow = false;
+      customColor = color;
+      document.getElementById('appThemeColorPicker').value = color;
+
+      const contrast = getContrastColor(color);
+
+      // 生成動態 CSS 強制覆蓋主色調，同時將 SVG 線條重新還原為原本繼承文字的單色
+      const styleEl = document.getElementById('dynamic-theme-style') || document.createElement('style');
+      styleEl.id = 'dynamic-theme-style';
+      styleEl.innerHTML = `
+        .theme-accent-text { color: ${color} !important; }
+        .theme-accent-text svg { stroke: currentColor !important; }
+        .theme-accent-bg { background-color: ${color} !important; color: ${contrast} !important; }
+        .theme-accent-border { border-color: ${color} !important; }
+        .loading-spinner { border-top-color: ${color} !important; }
+      `;
+      if (!styleEl.parentNode) document.head.appendChild(styleEl);
+
+      // 同步分享分頁的文字自訂顏色
+      document.getElementById('shareTextColor').value = color;
+      updateSharePreview();
+
+      // 移除彩虹按鈕圈選效果
+      document.getElementById('rainbowThemeBtn').classList.remove('ring-4', 'ring-slate-300', 'dark:ring-slate-700');
+
+      if (save) {
+        localStorage.setItem('fitsheet_theme_color', color);
+        localStorage.setItem('fitsheet_theme_is_rainbow', 'false');
+      }
+    }
+
+    // 啟動炫彩彩虹六色漸層色模式 (完美支援 SVG Icon 圖示與一般文字同步漸層)
+    function enableRainbowAccent(save = true) {
+      isRainbow = true;
+
+      // 生成動態 CSS 彩虹漸層樣式 (額外增加將 SVG stroke 的屬性重導向至全域的 #rainbow-gradient ID)
+      const styleEl = document.getElementById('dynamic-theme-style') || document.createElement('style');
+      styleEl.id = 'dynamic-theme-style';
+      styleEl.innerHTML = `
+        .theme-accent-text {
+          background: linear-gradient(90deg, #ff4b4b, #ff7f00, #ffdd00, #00e676, #00b0ff, #aa00ff);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          color: transparent !important;
+          display: inline-block;
+        }
+        .theme-accent-text svg {
+          stroke: url(#rainbow-gradient) !important;
+        }
+        .theme-accent-bg {
+          background: linear-gradient(90deg, #ff4b4b, #ff7f00, #ffdd00, #00e676, #00b0ff, #aa00ff) !important;
+          color: #ffffff !important;
+        }
+        .theme-accent-border {
+          border-image: linear-gradient(90deg, #ff4b4b, #ff7f00, #ffdd00, #00e676, #00b0ff, #aa00ff) 1 !important;
+        }
+        .loading-spinner {
+          border-top-color: #ff4b4b !important;
+        }
+      `;
+      if (!styleEl.parentNode) document.head.appendChild(styleEl);
+
+      // 設定彩虹按鈕的外框啟用效果
+      document.getElementById('rainbowThemeBtn').classList.add('ring-4', 'ring-slate-300', 'dark:ring-slate-700');
+
+      if (save) {
+        localStorage.setItem('fitsheet_theme_is_rainbow', 'true');
+      }
+    }
+
+    // 還原為 FitSheet 標誌性的祖母綠
+    function resetThemeColor() {
+      changeThemeColor('#10B981');
+    }
+
+    // --- 多語系轉換邏輯 ---
+    function translateUI() {
+      document.querySelectorAll('[data-t]').forEach(element => {
+        const key = element.getAttribute('data-t');
+        if (TRANSLATIONS[currentLang] && TRANSLATIONS[currentLang][key]) {
+          element.innerText = TRANSLATIONS[currentLang][key];
+        }
+      });
+      
+      // 更新 input placeholder
+      const placeholderKey = 'manage_name';
+      if (document.getElementById('newExerciseName') && TRANSLATIONS[currentLang][placeholderKey]) {
+        document.getElementById('newExerciseName').placeholder = TRANSLATIONS[currentLang][placeholderKey] + "...";
+      }
+    }
+
+    function changeLanguage(lang) {
+      currentLang = lang;
+      document.getElementById('langSelectDesktop').value = lang;
+      document.getElementById('langSelectSettings').value = lang;
+      translateUI();
+      renderWorkout();
+      updateSharePreview();
+    }
+
+    // --- PWA 分頁控制 ---
+    function switchTab(tabId) {
+      // 隱藏所有分頁
+      document.querySelectorAll('.tab-content').forEach(view => {
+        view.classList.add('hidden');
+      });
+      
+      // 顯示目標分頁
+      const targetView = document.getElementById('view-' + tabId);
+      if (targetView) targetView.classList.remove('hidden');
+
+      // 更新 Nav 按鈕選取狀態 (桌機 & 手機)
+      document.querySelectorAll('.tab-btn, .tab-btn-mobile').forEach(btn => {
+        if (btn.getAttribute('data-tab') === tabId) {
+          btn.classList.add('theme-accent-text', 'bg-slate-100', 'dark:bg-slate-900', 'shadow-sm');
+          btn.classList.remove('text-slate-400');
+        } else {
+          btn.classList.remove('theme-accent-text', 'bg-slate-100', 'dark:bg-slate-900', 'shadow-sm');
+          btn.classList.add('text-slate-400');
+        }
+      });
+
+      if (tabId === 'share') {
+        updateSharePreview();
+      }
+    }
+
+    // 顯示、隱藏全域讀取器
+    function showLoader(text) {
+      document.getElementById('loaderText').innerText = text;
+      document.getElementById('globalLoader').classList.remove('hidden');
+    }
+
+    function hideLoader() {
+      document.getElementById('globalLoader').classList.add('hidden');
+    }
+
+    // 初始化與串接 GAS
+    window.onload = function() {
+      // 優先載入佈景樣式設定
+      initThemeAndColor();
+
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('selectedDate').value = today;
+
+      // 載入試算表 URL
+      google.script.run.withSuccessHandler(function(url) {
+        document.getElementById('sheetLink').href = url;
+        const guideLink = document.getElementById('sheetLinkGuide');
+        if (guideLink) guideLink.href = url;
+      }).getSpreadsheetUrl();
+
+      // 載入選單與當日紀錄
+      loadExerciseMenu(true);
+      
+      // 預設切換至 訓練 分頁
+      switchTab('workout');
+    };
+
+    // 取得雲端動作選單
+    function loadExerciseMenu(firstLoad = false) {
+      showLoader("讀取動作選單中...");
+      google.script.run
+        .withSuccessHandler(function(menu) {
+          exerciseMenu = menu;
+          renderMenuDropdown();
+          hideLoader();
+          if (firstLoad) {
+            loadRecordsForDate();
+          }
+        })
+        .withFailureHandler(function(err) {
+          hideLoader();
+          showToast("載入動作清單失敗: " + err.message);
+        })
+        .getExerciseMenu();
+    }
+
+    function renderMenuDropdown() {
+      const select = document.getElementById('exerciseSelect');
+      select.innerHTML = '';
+      
+      // 分組渲染
+      const groups = {};
+      exerciseMenu.forEach(item => {
+        if (!groups[item.group]) {
+          groups[item.group] = [];
+        }
+        groups[item.group].push(item);
+      });
+
+      for (const groupName in groups) {
+        const optGroup = document.createElement('optgroup');
+        optGroup.label = groupName;
+        groups[groupName].forEach(item => {
+          const option = document.createElement('option');
+          option.value = item.name;
+          option.innerText = item.name;
+          optGroup.appendChild(option);
+        });
+        select.appendChild(optGroup);
+      }
+    }
+
+    // 一鍵批次匯入 40 種動作至雲端試算表
+    function importAllDefaultExercises() {
+      const confirmMsg = currentLang === 'zh' ? "這將會把 40 種最熱門的健身動作寫入試算表中，是否確定？" : "This will overwrite and import 40 classic exercises to Google Sheet. Are you sure?";
+      if (confirm(confirmMsg)) {
+        showLoader("正在匯入 45 種熱門動作...");
+        google.script.run
+          .withSuccessHandler(function() {
+            hideLoader();
+            showToast("🎉 已成功導入熱門動作選單！");
+            loadExerciseMenu(false);
+          })
+          .withFailureHandler(function(err) {
+            hideLoader();
+            showToast("匯入失敗: " + err.message);
+          })
+          .resetExerciseMenuToDefault();
+      }
+    }
+
+    // 載入特定日期的紀錄
+    function loadRecordsForDate() {
+      const dateStr = document.getElementById('selectedDate').value;
+      if (!dateStr) return;
+
+      showLoader(`讀取 ${dateStr} 紀錄中...`);
+      google.script.run
+        .withSuccessHandler(function(records) {
+          currentWorkout = records;
+          renderWorkout();
+          hideLoader();
+        })
+        .withFailureHandler(function(err) {
+          hideLoader();
+          showToast("載入紀錄失敗: " + err.message);
+        })
+        .getRecordsByDate(dateStr);
+    }
+
+    // 保存至 Google Sheet
+    function saveRecordsToSheet() {
+      const dateStr = document.getElementById('selectedDate').value;
+      if (!dateStr) return;
+
+      showLoader("正同步至雲端試算表...");
+      google.script.run
+        .withSuccessHandler(function(response) {
+          hideLoader();
+          showToast("🎉 成功同步至 Google Sheet！");
+        })
+        .withFailureHandler(function(err) {
+          hideLoader();
+          showToast("儲存失敗: " + err.message);
+        })
+        .saveDayRecords(dateStr, currentWorkout);
+    }
+
+    // 新增自訂動作至選單
+    function addNewExerciseToMenu() {
+      const nameInput = document.getElementById('newExerciseName');
+      const name = nameInput.value.trim();
+      const group = document.getElementById('newExerciseGroup').value;
+
+      if (!name) {
+        showToast("請輸入動作名稱");
+        return;
+      }
+
+      showLoader("正在將動作寫入選單...");
+      google.script.run
+        .withSuccessHandler(function() {
+          hideLoader();
+          nameInput.value = '';
+          showToast("已新增動作：「" + name + "」");
+          loadExerciseMenu();
+        })
+        .withFailureHandler(function(err) {
+          hideLoader();
+          showToast("新增動作失敗: " + err.message);
+        })
+        .addCustomExerciseToSheet(name, group);
+    }
+
+    // 新增選取動作至今日清單
+    function addExerciseToWorkout() {
+      const select = document.getElementById('exerciseSelect');
+      const name = select.value;
+      if (!name) {
+        showToast("請先選擇一個動作");
+        return;
+      }
+      // 若該動作已存在，直接新增一組
+      const existing = currentWorkout.find(w => w.name === name);
+      if (existing) {
+        existing.sets.push({ weight: 0, reps: 0, note: '' });
+      } else {
+        currentWorkout.push({ name: name, sets: [{ weight: 0, reps: 0, note: '' }], difficulty: 'normal' });
+      }
+      renderWorkout();
+    }
+
+    // 為指定動作新增下一組
+    function addNewSetToExercise(exIdx) {
+      if (currentWorkout[exIdx]) {
+        currentWorkout[exIdx].sets.push({ weight: 0, reps: 0, note: '' });
+        renderWorkout();
+      }
+    }
+
+    // 刪除指定動作
+    function deleteExercise(exIdx) {
+      currentWorkout.splice(exIdx, 1);
+      renderWorkout();
+    }
+
+    // 刪除指定組數
+    function deleteSet(exIdx, setIdx) {
+      currentWorkout[exIdx].sets.splice(setIdx, 1);
+      if (currentWorkout[exIdx].sets.length === 0) {
+        currentWorkout.splice(exIdx, 1);
+      }
+      renderWorkout();
+    }
+
+    // 調整重量或次數 (±步進)
+    function adjustVal(exIdx, setIdx, field, delta) {
+      const set = currentWorkout[exIdx].sets[setIdx];
+      if (field === 'weight') {
+        set.weight = Math.max(0, (parseFloat(set.weight) || 0) + delta);
+      } else if (field === 'reps') {
+        set.reps = Math.max(0, (parseInt(set.reps) || 0) + delta);
+      }
+      renderWorkout();
+    }
+
+    // 直接更新輸入框數值
+    function updateSetVal(exIdx, setIdx, field, value) {
+      const set = currentWorkout[exIdx].sets[setIdx];
+      if (field === 'weight') {
+        set.weight = parseFloat(value) || 0;
+      } else if (field === 'reps') {
+        set.reps = parseInt(value) || 0;
+      } else if (field === 'note') {
+        set.note = value;
+      }
+    }
+
+    // 清空本日所有訓練紀錄
+    function clearDayRecords() {
+      const confirmMsg = currentLang === 'zh' ? "確定要清空今日所有訓練紀錄嗎？" : "Are you sure to clear all records for today?";
+      if (confirm(confirmMsg)) {
+        currentWorkout = [];
+        renderWorkout();
+      }
+    }
+
+    // 切換困難度分級
+    function toggleDifficulty(exIdx, difficultyLevel) {
+      currentWorkout[exIdx].difficulty = difficultyLevel;
+      renderWorkout();
+    }
+
+    // 渲染今日訓練表 (導入困難度動態色彩與更細密的 UI)
+    function renderWorkout() {
+      const container = document.getElementById('workoutContainer');
+      const countBadge = document.getElementById('exerciseCount');
+      const emptyState = document.getElementById('emptyState');
+
+      container.innerHTML = '';
+      countBadge.innerText = currentWorkout.length;
+
+      if (currentWorkout.length === 0) {
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+
+      currentWorkout.forEach((workout, exIdx) => {
+        const itemEl = document.createElement('div');
+        const diff = workout.difficulty || 'normal';
+        const diffConfig = DIFFICULTY_CONFIG[diff];
+
+        // 根據困難度變更卡片背景與邊框色彩
+        itemEl.className = `bg-slate-50 dark:bg-slate-900 border-2 rounded-2xl p-4 space-y-3 transition-all ${diffConfig.borderClass}`;
+        
+        let setsHtml = '';
+        workout.sets.forEach((set, setIdx) => {
+          const w = parseFloat(set.weight) || 0;
+          const r = parseInt(set.reps) || 0;
+          const oneRM = (w * (1 + r / 30)).toFixed(1);
+
+          setsHtml += `
+            <div class="flex flex-wrap items-center gap-2 sm:gap-4 bg-white dark:bg-slate-950 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200">
+              <span class="w-10 text-[10px] font-bold text-slate-500 text-center">Set ${setIdx + 1}</span>
+              
+              <!-- 重量加減 0.5kg -->
+              <div class="flex items-center space-x-1 flex-1 min-w-[100px]">
+                <button onclick="adjustVal(${exIdx}, ${setIdx}, 'weight', -0.5)" class="p-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded text-slate-500 hover:theme-accent-text">
+                  <i data-lucide="minus-circle" class="h-3.5 w-3.5"></i>
+                </button>
+                <div class="relative flex-grow">
+                  <input type="number" step="0.5" value="${set.weight}" 
+                    oninput="updateSetVal(${exIdx}, ${setIdx}, 'weight', this.value)"
+                    class="w-full text-center font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-900 border border-transparent rounded py-1 px-1 focus:outline-none focus:theme-accent-border text-xs">
+                  <span class="absolute right-1 top-1 text-[8px] text-slate-555">kg</span>
+                </div>
+                <button onclick="adjustVal(${exIdx}, ${setIdx}, 'weight', 0.5)" class="p-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded text-slate-500 hover:theme-accent-text">
+                  <i data-lucide="plus-circle" class="h-3.5 w-3.5"></i>
+                </button>
+              </div>
+
+              <!-- 次數 -->
+              <div class="flex items-center space-x-1 flex-1 min-w-[90px]">
+                <button onclick="adjustVal(${exIdx}, ${setIdx}, 'reps', -1)" class="p-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded text-slate-500 hover:theme-accent-text">
+                  <i data-lucide="minus-circle" class="h-3.5 w-3.5"></i>
+                </button>
+                <div class="relative flex-grow">
+                  <input type="number" value="${set.reps}" 
+                    oninput="updateSetVal(${exIdx}, ${setIdx}, 'reps', this.value)"
+                    class="w-full text-center font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-900 border border-transparent rounded py-1 px-1 focus:outline-none focus:theme-accent-border text-xs">
+                  <span class="absolute right-1 top-1 text-[8px] text-slate-555">下</span>
+                </div>
+                <button onclick="adjustVal(${exIdx}, ${setIdx}, 'reps', 1)" class="p-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded text-slate-500 hover:theme-accent-text">
+                  <i data-lucide="plus-circle" class="h-3.5 w-3.5"></i>
+                </button>
+              </div>
+
+              <!-- 1RM 顯示 -->
+              <div class="text-[10px] text-slate-550 dark:text-slate-400 flex flex-col justify-center px-2 min-w-[60px]">
+                <span class="text-[8px] text-slate-400">Est. 1RM</span>
+                <span class="font-bold theme-accent-text">${oneRM} kg</span>
+              </div>
+
+              <!-- 備註 -->
+              <div class="flex-grow min-w-[130px]">
+                <input type="text" placeholder="備註..." value="${set.note || ''}"
+                  oninput="updateSetVal(${exIdx}, ${setIdx}, 'note', this.value)"
+                  class="w-full text-[10px] text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 border border-transparent rounded py-1.5 px-2 focus:outline-none focus:theme-accent-border">
+              </div>
+
+              <!-- 刪除單組 -->
+              <button onclick="deleteSet(${exIdx}, ${setIdx})" class="text-slate-400 hover:text-red-500 transition">
+                <i data-lucide="trash" class="h-3.5 w-3.5"></i>
+              </button>
+            </div>
+          `;
+        });
+
+        // 多語系標籤文本
+        const easyTxt = TRANSLATIONS[currentLang].difficulty_easy;
+        const normalTxt = TRANSLATIONS[currentLang].difficulty_normal;
+        const hardTxt = TRANSLATIONS[currentLang].difficulty_hard;
+
+        itemEl.innerHTML = `
+          <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+            <div class="flex items-center space-x-2">
+              <span class="bg-slate-200 dark:bg-slate-950 theme-accent-text font-bold px-1.5 py-0.5 rounded text-[10px]">${exIdx + 1}</span>
+              <h3 class="font-bold text-slate-900 dark:text-white text-xs sm:text-sm">${workout.name}</h3>
+            </div>
+            
+            <!-- 困難度控制按鈕組 (簡單/正常/困難) -->
+            <div class="flex items-center space-x-1.5 self-end sm:self-auto">
+              <div class="flex bg-slate-100 dark:bg-slate-950/80 p-0.5 rounded-lg border border-slate-200 dark:border-slate-800 text-[10px]">
+                <button onclick="toggleDifficulty(${exIdx}, 'easy')" class="px-2 py-1 rounded-md font-bold transition-all ${diff === 'easy' ? 'theme-accent-bg' : 'text-slate-400'}">${easyTxt}</button>
+                <button onclick="toggleDifficulty(${exIdx}, 'normal')" class="px-2 py-1 rounded-md font-bold transition-all ${diff === 'normal' ? 'theme-accent-bg' : 'text-slate-400'}">${normalTxt}</button>
+                <button onclick="toggleDifficulty(${exIdx}, 'hard')" class="px-2 py-1 rounded-md font-bold transition-all ${diff === 'hard' ? 'theme-accent-bg' : 'text-slate-400'}">${hardTxt}</button>
+              </div>
+              <button onclick="deleteExercise(${exIdx})" class="text-slate-400 hover:text-rose-500 text-xs flex items-center p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-950 transition" title="移除此動作">
+                <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+              </button>
+            </div>
+          </div>
+          <div class="space-y-2">
+            ${setsHtml}
+          </div>
+          <button onclick="addNewSetToExercise(${exIdx})" class="w-full py-2 border border-dashed border-slate-200 dark:border-slate-700/60 hover:border-slate-400 dark:hover:border-slate-600 text-slate-400 hover:theme-accent-text rounded-xl text-[10px] font-semibold transition flex items-center justify-center gap-1">
+            <i data-lucide="plus-circle" class="h-3 w-3"></i> <span data-t="btn_add_to_list">新增下一組</span>
+          </button>
+        `;
+
+        container.appendChild(itemEl);
+      });
+
+      lucide.createIcons();
+    }
+
+    // --- 高階數據分享核心邏輯 (每日、每週、每月、每年) ---
+    function setSharePeriod(period) {
+      sharePeriod = period;
+      document.querySelectorAll('.share-period-btn').forEach(btn => {
+        btn.classList.remove('theme-accent-text', 'bg-white', 'dark:bg-slate-950', 'shadow');
+        btn.classList.add('text-slate-500', 'dark:text-slate-400');
+      });
+      const targetBtn = document.getElementById('btn-share-' + period);
+      if (targetBtn) {
+        targetBtn.classList.add('theme-accent-text', 'bg-white', 'dark:bg-slate-950', 'shadow');
+        targetBtn.classList.remove('text-slate-500', 'dark:text-slate-400');
+      }
+      updateSharePreview();
+    }
+
+    // 取得當週的星期一到星期日
+    function getWeekRangeAndCounts() {
+      const todayStr = document.getElementById('selectedDate').value;
+      const today = new Date(todayStr);
+      const day = today.getDay();
+      const diff = today.getDate() - day + (day === 0 ? -6 : 1); // 星期一為基準
+      const monday = new Date(today.setDate(diff));
+
+      let result = [];
+      for (let i = 0; i < 7; i++) {
+        const nextDay = new Date(monday);
+        nextDay.setDate(monday.getDate() + i);
+        const nextDayStr = nextDay.toISOString().split('T')[0];
+        
+        const mockRecords = localStorage.getItem('fitsheet_mock_records_' + nextDayStr);
+        const count = mockRecords ? JSON.parse(mockRecords).length : (nextDayStr === todayStr ? currentWorkout.length : 0);
+        result.push({ dateStr: nextDayStr.substring(5), count });
+      }
+      return result;
+    }
+
+    // 取得當月統計
+    function getMonthStats() {
+      const todayStr = document.getElementById('selectedDate').value;
+      const yearMonth = todayStr.substring(0, 7); // e.g., 2026-06
+      const year = parseInt(todayStr.split('-')[0]);
+      const month = parseInt(todayStr.split('-')[1]);
+      const totalDays = new Date(year, month, 0).getDate();
+
+      let activeDays = 0;
+      let totalExercises = 0;
+
+      for (let i = 1; i <= totalDays; i++) {
+        const dayStr = `${yearMonth}-${String(i).padStart(2, '0')}`;
+        const mockRecords = localStorage.getItem('fitsheet_mock_records_' + dayStr);
+        const records = mockRecords ? JSON.parse(mockRecords) : (dayStr === todayStr ? currentWorkout : []);
+        if (records.length > 0) {
+          activeDays++;
+          totalExercises += records.length;
+        }
+      }
+
+      return { yearMonth, activeDays, totalExercises };
+    }
+
+    // 取得年度月份統計
+    function getYearlyStats() {
+      const todayStr = document.getElementById('selectedDate').value;
+      const year = todayStr.split('-')[0];
+      let monthStats = []; // 12 個月份的訓練天數
+
+      for (let m = 1; m <= 12; m++) {
+        const yearMonth = `${year}-${String(m).padStart(2, '0')}`;
+        const totalDays = new Date(parseInt(year), m, 0).getDate();
+        let daysTrained = 0;
+
+        for (let d = 1; d <= totalDays; d++) {
+          const dayStr = `${yearMonth}-${String(d).padStart(2, '0')}`;
+          const mockRecords = localStorage.getItem('fitsheet_mock_records_' + dayStr);
+          const records = mockRecords ? JSON.parse(mockRecords) : (dayStr === todayStr ? currentWorkout : []);
+          if (records.length > 0) {
+            daysTrained++;
+          }
+        }
+        monthStats.push({ month: m, daysTrained });
+      }
+      return { year, monthStats };
+    }
+
+    // 生成分享文字結構
+    function getShareText() {
+      const todayStr = document.getElementById('selectedDate').value;
+      let text = "";
+
+      if (sharePeriod === 'day') {
+        text += `📅 FitSheet 每日健體紀錄 | ${todayStr}\n`;
+        text += `--------------------------------\n`;
+        if (currentWorkout.length === 0) {
+          text += `今天給肌肉放個假，充分休息！🧘`;
+        } else {
+          currentWorkout.forEach((w, idx) => {
+            const diffText = DIFFICULTY_CONFIG[w.difficulty || 'normal'][`text_${currentLang === 'zh' ? 'zh' : 'en'}`];
+            text += `${idx + 1}. ${w.name} [${diffText}]\n`;
+            w.sets.forEach((s, sIdx) => {
+              text += `   Set ${sIdx + 1}: ${s.weight}kg x ${s.reps}下\n`;
+            });
+          });
+        }
+      } 
+      else if (sharePeriod === 'week') {
+        text += `📅 FitSheet 每週紀錄報表\n`;
+        text += `--------------------------------\n`;
+        const weekData = getWeekRangeAndCounts();
+        weekData.forEach(item => {
+          text += `${item.dateStr}: ${item.count} 個訓練動作\n`;
+        });
+      } 
+      else if (sharePeriod === 'month') {
+        const stats = getMonthStats();
+        text += `📅 FitSheet 月度訓練統計 | ${stats.yearMonth}\n`;
+        text += `--------------------------------\n`;
+        text += `本月累計鍛鍊天數: ${stats.activeDays} 天\n`;
+        text += `本月累計訓練動作: ${stats.totalExercises} 次\n`;
+        text += `堅持規律，成就不凡的自己！🔥`;
+      } 
+      else if (sharePeriod === 'year') {
+        const stats = getYearlyStats();
+        text += `📅 FitSheet 年度健體年報 | ${stats.year}年\n`;
+        text += `--------------------------------\n`;
+        let totalDays = 0;
+        stats.monthStats.forEach(item => {
+          text += `${item.month}月: 訓練 ${item.daysTrained} 天\n`;
+          totalDays += item.daysTrained;
+        });
+        text += `--------------------------------\n`;
+        text += `🏆 年度累計鍛鍊天數: ${totalDays} 天！`;
+      }
+
+      return text;
+    }
+
+    // 更新分享文字與圖案預覽
+    function updateSharePreview() {
+      const preview = document.getElementById('shareTextPreviewContainer');
+      const shareText = getShareText();
+      const color = document.getElementById('shareTextColor').value;
+      
+      preview.innerText = shareText;
+      preview.style.color = color;
+    }
+
+    // 複製分享文字至剪貼簿
+    function copyShareText() {
+      const text = getShareText();
+      
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(function() {
+          showToast("🎉 分享文字已成功複製！");
+        }).catch(function() {
+          fallbackCopyText(text);
+        });
+      } else {
+        fallbackCopyText(text);
+      }
+    }
+
+    // 備用文字複製方案
+    function fallbackCopyText(text) {
+      const tempTextArea = document.createElement("textarea");
+      tempTextArea.value = text;
+      tempTextArea.style.position = 'fixed';
+      tempTextArea.style.top = '-1000px';
+      tempTextArea.style.left = '-1000px';
+      tempTextArea.style.width = '2em';
+      tempTextArea.style.height = '2em';
+      tempTextArea.style.padding = '0';
+      tempTextArea.style.border = 'none';
+      tempTextArea.style.outline = 'none';
+      tempTextArea.style.boxShadow = 'none';
+      tempTextArea.style.background = 'transparent';
+      document.body.appendChild(tempTextArea);
+      
+      tempTextArea.focus();
+      tempTextArea.select();
+      tempTextArea.setSelectionRange(0, 99999);
+      
+      try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+          showToast("🎉 分享文字已成功複製！");
+        } else {
+          showToast("複製失敗，請手動選取文字複製");
+        }
+      } catch (err) {
+        showToast("複製失敗，請手動選取文字複製");
+      }
+      
+      document.body.removeChild(tempTextArea);
+    }
+
+    // HTML5 Canvas 高級圖檔生成系統
+    function generateShareImage() {
+      const canvas = document.getElementById('shareCanvas');
+      const ctx = canvas.getContext('2d');
+      const text = getShareText();
+      const textColor = document.getElementById('shareTextColor').value;
+      const isTrans = document.getElementById('shareTransBg').checked;
+
+      const lines = text.split('\n');
+      
+      canvas.width = 1000;
+      canvas.height = 100 + (lines.length * 45);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (!isTrans) {
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+
+      ctx.strokeStyle = textColor;
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.08;
+      ctx.beginPath();
+      ctx.arc(canvas.width - 150, 150, 200, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1.0;
+
+      ctx.fillStyle = textColor;
+      ctx.font = 'bold 36px "Inter", "Noto Sans TC", sans-serif';
+      
+      let currentY = 80;
+      lines.forEach((line, index) => {
+        if (index === 0) {
+          ctx.font = 'bold 38px "Inter", "Noto Sans TC", sans-serif';
+          ctx.fillText(line, 50, currentY);
+          currentY += 60;
+        } else {
+          ctx.font = '500 28px "Inter", "Noto Sans TC", sans-serif';
+          if (line.startsWith('---')) {
+            ctx.strokeStyle = textColor;
+            ctx.globalAlpha = 0.3;
+            ctx.beginPath();
+            ctx.moveTo(50, currentY - 10);
+            ctx.lineTo(canvas.width - 50, currentY - 10);
+            ctx.stroke();
+            ctx.globalAlpha = 1.0;
+            currentY += 25;
+          } else {
+            ctx.fillText(line, 50, currentY);
+            currentY += 45;
+          }
+        }
+      });
+
+      try {
+        const dataUrl = canvas.toDataURL("image/png");
+        document.getElementById('modalPreviewImage').src = dataUrl;
+        document.getElementById('imageModal').classList.remove('hidden');
+        showToast("🎉 分享圖片已成功生成！");
+        lucide.createIcons();
+      } catch (err) {
+        showToast("產生圖片失敗，此瀏覽器可能不支援 Canvas 輸出");
+      }
+    }
+
+    // 解決行動端長按 Base64 Data-URI 無法拷貝至剪貼簿的必殺技
+    function copyImageToClipboard() {
+      const canvas = document.getElementById('shareCanvas');
+      try {
+        canvas.toBlob(function(blob) {
+          if (!blob) {
+            showToast("圖片 Blob 資料生成失敗");
+            return;
+          }
+          
+          if (navigator.clipboard && window.isSecureContext) {
+            const item = new ClipboardItem({ "image/png": blob });
+            navigator.clipboard.write([item]).then(function() {
+              showToast("🎉 圖片複製成功！可直接至 IG 限動或 LINE 貼上");
+            }).catch(function(err) {
+              console.error("Clipboard write error: ", err);
+              showToast("瀏覽器安全限制直接複製圖片，請改用長按圖片儲存！");
+            });
+          } else {
+            showToast("當前環境不支援直接複製圖片，請長按圖片儲存！");
+          }
+        }, "image/png");
+      } catch (e) {
+        console.error("Canvas toBlob error: ", e);
+        showToast("複製失敗，請改用長按圖片儲存！");
+      }
+    }
+
+    // 關閉圖片 Modal 彈窗
+    function closeImageModal() {
+      document.getElementById('imageModal').classList.add('hidden');
+    }
+  </script>
+</body>
+</html>
