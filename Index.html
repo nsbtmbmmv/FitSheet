@@ -359,50 +359,44 @@
         </div>
       </section>
 
-      <!-- 手機安裝與建立副本說明區塊 (合併為單一卡片樣式，與[使用說明]完美一致) -->
-      <section class="bg-white dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-6 shadow-xl space-y-6 transition-colors duration-300">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 divide-y md:divide-y-0 md:divide-x divide-slate-200 dark:divide-slate-800/60">
-          <!-- 左側：手機安裝為 App 指南 -->
-          <div class="space-y-4">
-            <h3 class="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
-              <i data-lucide="smartphone" class="h-5 w-5 theme-accent-text"></i> <span data-t="guide_title">手機安裝為 App 指南</span>
-            </h3>
-            <p class="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed" data-t="guide_desc">
-              將此網頁加到您的手機桌面，即可擁有精美的 App 圖示並享有更流暢的全螢幕健身房紀錄體驗！
-            </p>
-            <div class="text-[11px] space-y-2 text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-800/60">
-              <div class="flex items-start gap-1">
-                <span class="font-bold theme-accent-text">iOS:</span>
-                <span>用 <strong class="text-slate-800 dark:text-slate-200">Safari</strong> 開啟 ➔ 點擊下方「<strong class="text-slate-800 dark:text-slate-200">分享</strong>」按鈕 ➔ 選擇「<strong class="text-slate-800 dark:text-slate-200">加入主畫面</strong>」➔ 完成！</span>
-              </div>
-              <div class="flex items-start gap-1">
-                <span class="font-bold theme-accent-text">Android:</span>
-                <span>用 <strong class="text-slate-800 dark:text-slate-200">Chrome</strong> 開啟 ➔ 點擊右上角「<strong class="text-slate-200">三點選單</strong>」➔ 選擇「<strong class="text-slate-800 dark:text-slate-200">安裝應用程式</strong>」或「<strong class="text-slate-800 dark:text-slate-200">新增至主畫面</strong>」➔ 完成！</span>
-              </div>
-            </div>
+      <!-- 手機安裝為 App 指南 (獨立區塊，樣式同[使用說明]) -->
+      <section class="bg-white dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-6 shadow-xl space-y-4 transition-colors duration-300">
+        <h2 class="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
+          <i data-lucide="smartphone" class="h-5 w-5 theme-accent-text"></i>
+          <span data-t="guide_title">手機安裝為 App 指南</span>
+        </h2>
+        <p class="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed" data-t="guide_desc">
+          將此網頁加到您的手機桌面，即可擁有精美的 App 圖示並享有更流暢的全螢幕健身房紀錄體驗！
+        </p>
+        <div class="text-[11px] space-y-2 text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-800/60">
+          <div class="flex items-start gap-1">
+            <span class="font-bold theme-accent-text">iOS:</span>
+            <span>用 <strong class="text-slate-800 dark:text-slate-200">Safari</strong> 開啟 ➔ 點擊下方「<strong class="text-slate-800 dark:text-slate-200">分享</strong>」按鈕 ➔ 選擇「<strong class="text-slate-800 dark:text-slate-200">加入主畫面</strong>」➔ 完成！</span>
           </div>
-          
-          <!-- 右側：複製使用說明 / 連動說明 -->
-          <div class="space-y-4 pt-6 md:pt-0 md:pl-8 flex flex-col justify-between">
-            <div class="space-y-4">
-              <h3 class="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2" id="helpHeader">
-                <i data-lucide="copy" class="h-5 w-5 theme-accent-text"></i> <span data-t="help_title">想要建立自己的副本？</span>
-              </h3>
-              <p class="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed mt-1" data-t="help_desc">
-                這套系統支援完全複製！請點擊下方「開啟試算表」後，於 Google 試算表中點選<strong>「檔案」 > 「建立副本」</strong>。接著在您的副本中部署為 Web App，就能擁有專屬的連結囉！
-              </p>
-              
-              <!-- 開啟試算表按鈕 -->
-              <div class="pt-2">
-                <a id="sheetLinkGuide" href="#" target="_blank" class="inline-flex items-center gap-1.5 text-xs theme-accent-bg hover:opacity-90 font-bold px-4 py-2.5 rounded-xl transition-all shadow-md">
-                  <i data-lucide="external-link" class="h-3.5 w-3.5"></i> <span data-t="open_sheet">開啟試算表</span>
-                </a>
-              </div>
-            </div>
-            <div class="text-[10px] theme-accent-text mt-4 flex items-center gap-1 font-semibold border-t border-slate-200 dark:border-slate-800/60 pt-3">
-              <i data-lucide="check" class="h-3.5 w-3.5"></i> <span data-t="help_tag">開源共享，自由修改與推廣</span>
-            </div>
+          <div class="flex items-start gap-1">
+            <span class="font-bold theme-accent-text">Android:</span>
+            <span>用 <strong class="text-slate-800 dark:text-slate-200">Chrome</strong> 開啟 ➔ 點擊右上角「<strong class="text-slate-800 dark:text-slate-200">三點選單</strong>」➔ 選擇「<strong class="text-slate-800 dark:text-slate-200">安裝應用程式</strong>」或「<strong class="text-slate-800 dark:text-slate-200">新增至主畫面</strong>」➔ 完成！</span>
           </div>
+        </div>
+      </section>
+
+      <!-- 想要建立自己的副本？ (獨立區塊，樣式同[使用說明]) -->
+      <section class="bg-white dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-6 shadow-xl space-y-4 transition-colors duration-300">
+        <h2 class="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2" id="helpHeader">
+          <i data-lucide="copy" class="h-5 w-5 theme-accent-text"></i>
+          <span data-t="help_title">想要建立自己的副本？</span>
+        </h2>
+        <p class="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed" data-t="help_desc">
+          這套系統支援完全複製！請點擊下方「開啟試算表」後，於 Google 試算表中點選<strong>「檔案」 > 「建立副本」</strong>。接著在您的副本中部署為 Web App，就能擁有專屬的連結囉！
+        </p>
+        <!-- 開啟試算表按鈕 -->
+        <div class="pt-2">
+          <a id="sheetLinkGuide" href="#" target="_blank" class="inline-flex items-center gap-1.5 text-xs theme-accent-bg hover:opacity-90 font-bold px-4 py-2.5 rounded-xl transition-all shadow-md">
+            <i data-lucide="external-link" class="h-3.5 w-3.5"></i> <span data-t="open_sheet">開啟試算表</span>
+          </a>
+        </div>
+        <div class="text-[10px] theme-accent-text flex items-center gap-1 font-semibold border-t border-slate-200 dark:border-slate-800/60 pt-3">
+          <i data-lucide="check" class="h-3.5 w-3.5"></i> <span data-t="help_tag">開源共享，自由修改與推廣</span>
         </div>
       </section>
     </div>
@@ -1040,6 +1034,9 @@
       
       // 預設切換至 訓練 分頁
       switchTab('workout');
+
+      // 渲染靜態 Lucide 圖示
+      if (window.lucide) lucide.createIcons();
     };
 
     // 取得雲端動作選單
@@ -1104,6 +1101,43 @@
           })
           .resetExerciseMenuToDefault();
       }
+    }
+
+    // 設定日期為今天並重新載入紀錄
+    function setToday() {
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('selectedDate').value = today;
+      loadRecordsForDate();
+    }
+
+    // 往前 (昨天) 或往後 (明天) 切換日期 (delta 為天數)
+    function shiftDate(delta) {
+      const input = document.getElementById('selectedDate');
+      const cur = input.value || new Date().toISOString().split('T')[0];
+      const [y, m, d] = cur.split('-').map(Number);
+      // 以本地時間運算日期，避免 UTC 時區位移造成跳日
+      const dt = new Date(y, m - 1, d + delta);
+      const yy = dt.getFullYear();
+      const mm = String(dt.getMonth() + 1).padStart(2, '0');
+      const dd = String(dt.getDate()).padStart(2, '0');
+      input.value = `${yy}-${mm}-${dd}`;
+      loadRecordsForDate();
+    }
+
+    // 底部 Toast 通知提示
+    let toastTimer = null;
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      const msgEl = document.getElementById('toastMessage');
+      if (!toast || !msgEl) return;
+      msgEl.innerText = message;
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+        toast.classList.remove('translate-y-0', 'opacity-100');
+      }, 2600);
     }
 
     // 載入特定日期的紀錄
