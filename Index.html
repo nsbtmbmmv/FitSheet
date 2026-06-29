@@ -47,9 +47,14 @@
   </style>
 
   <style>
+    /* 禁止雙指縮放與雙擊放大 (僅允許上下/左右捲動)，避免影響操作體驗 */
+    html {
+      touch-action: pan-x pan-y;
+    }
     body {
       font-family: 'Outfit', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       -webkit-tap-highlight-color: transparent;
+      touch-action: pan-x pan-y;
     }
     /* 隱藏滾動條 */
     .no-scrollbar::-webkit-scrollbar {
@@ -74,6 +79,11 @@
     @media (max-width: 768px) {
       .safe-bottom-padding {
         padding-bottom: 90px;
+      }
+      /* iOS Safari 在點擊字級 < 16px 的輸入框時會自動放大畫面，
+         手機版將表單元件字級設為 16px 以阻止此自動放大行為 */
+      input, select, textarea {
+        font-size: 16px !important;
       }
     }
   </style>
@@ -1014,6 +1024,11 @@
     function hideLoader() {
       document.getElementById('globalLoader').classList.add('hidden');
     }
+
+    // 禁止 iOS Safari 雙指縮放手勢 (iOS 不完全遵守 touch-action / user-scalable=no)
+    ['gesturestart', 'gesturechange', 'gestureend'].forEach(function(evt) {
+      document.addEventListener(evt, function(e) { e.preventDefault(); }, { passive: false });
+    });
 
     // 初始化與串接 GAS
     window.onload = function() {
