@@ -1249,13 +1249,23 @@
         return;
       }
 
+      // 避免重複新增同名動作
+      if (exerciseMenu.some(item => item.name === name)) {
+        showToast("選單已存在此動作：「" + name + "」");
+        return;
+      }
+
       showLoader("正在將動作寫入選單...");
       google.script.run
         .withSuccessHandler(function() {
           hideLoader();
           nameInput.value = '';
+          // 直接在本地選單加入並重繪，讓訓練分頁的「新增今日動作」下拉即時同步
+          exerciseMenu.push({ name: name, group: group });
+          renderMenuDropdown();
+          // 將新動作設為目前選取項，方便直接新增至清單
+          document.getElementById('exerciseSelect').value = name;
           showToast("已新增動作：「" + name + "」");
-          loadExerciseMenu();
         })
         .withFailureHandler(function(err) {
           hideLoader();
