@@ -1040,6 +1040,58 @@
       input.value = ''; // 允許重複選同一檔
     }
 
+    // 將 dataURL 圖片等比縮放並壓縮成 JPEG (僅縮小不放大)，大幅降低 localStorage 佔用
+    function compressImage(dataUrl, maxDim, quality, cb) {
+      const img = new Image();
+      img.onload = function() {
+        let width = img.naturalWidth || img.width;
+        let height = img.naturalHeight || img.height;
+        const longest = Math.max(width, height);
+        if (longest > maxDim) {
+          const scale = maxDim / longest;
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        cb(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = function() { showToast("圖片讀取失敗"); };
+      img.src = dataUrl;
+    }
+
+    // 嘗試將壓縮後圖片寫入 localStorage；配額不足時自動降階 (更小尺寸/更低品質) 重試
+    function saveBgWithFallback(key, srcDataUrl, applyFn, okMsg, startStep) {
+      // 降階參數：依序嘗試 (maxDim, quality)，越後面越小
+      const steps = [
+        [1920, 0.82],
+        [1280, 0.72],
+        [960, 0.6],
+        [640, 0.5]
+      ];
+
+      function tryStep(i) {
+        if (i >= steps.length) {
+          showToast("圖片過大無法儲存，請改用較小的圖片");
+          return;
+        }
+        compressImage(srcDataUrl, steps[i][0], steps[i][1], function(out) {
+          try {
+            localStorage.setItem(key, out);
+            applyFn();
+            showToast(okMsg);
+          } catch (e) {
+            // 配額不足，改用更小的設定重試
+            tryStep(i + 1);
+          }
+        });
+      }
+      tryStep(startStep || 0);
+    }
+
     // 套用主背景 (body)
     function applyMainBg() {
       const img = localStorage.getItem('fitsheet_main_bg');
@@ -1063,13 +1115,8 @@
 
     function setMainBgImage(input) {
       readImageFile(input, function(dataUrl) {
-        try {
-          localStorage.setItem('fitsheet_main_bg', dataUrl);
-          applyMainBg();
-          showToast("已套用主背景圖片");
-        } catch (e) {
-          showToast("圖片過大無法儲存，請改用較小的圖片");
-        }
+        // 主背景：自最大尺寸 1920 起壓縮，配額不足時自動降階
+        saveBgWithFallback('fitsheet_main_bg', dataUrl, applyMainBg, "已套用主背景圖片", 0);
       });
     }
 
@@ -1110,13 +1157,8 @@
 
     function setSectionBgImage(input) {
       readImageFile(input, function(dataUrl) {
-        try {
-          localStorage.setItem('fitsheet_section_bg', dataUrl);
-          applySectionStyle();
-          showToast("已套用卡片背景圖片");
-        } catch (e) {
-          showToast("圖片過大無法儲存，請改用較小的圖片");
-        }
+        // 卡片背景顯示尺寸較小，自最大尺寸 1280 起壓縮 (steps 索引 1)
+        saveBgWithFallback('fitsheet_section_bg', dataUrl, applySectionStyle, "已套用卡片背景圖片", 1);
       });
     }
 
