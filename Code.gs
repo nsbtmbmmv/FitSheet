@@ -180,29 +180,35 @@ function getRecordsByDate(dateString) {
     if (data.length <= 1) return [];
     
     const recordsMap = {};
+    const diffMap = {};
+    const VALID_DIFF = ['easy', 'normal', 'hard'];
     const targetDate = cleanDateString(dateString);
     if (!targetDate) return [];
 
     for (let i = 1; i < data.length; i++) {
       if (!data[i][0]) continue;
-      
+
       const rowDate = cleanDateString(data[i][0]);
       if (rowDate === targetDate) {
         const exerciseName = data[i][1].toString().trim();
         const weight = parseFloat(data[i][3]) || 0;
         const reps = parseInt(data[i][4]) || 0;
         const note = data[i][6] ? data[i][6].toString().trim() : '';
-        
+        // 難度位於第 8 欄 (索引 7)；舊資料無此欄時預設 normal
+        let diff = data[i][7] ? data[i][7].toString().trim() : 'normal';
+        if (VALID_DIFF.indexOf(diff) === -1) diff = 'normal';
+
         if (!recordsMap[exerciseName]) {
           recordsMap[exerciseName] = [];
+          diffMap[exerciseName] = diff; // 以該動作第一列的難度為準
         }
         recordsMap[exerciseName].push({ weight: weight, reps: reps, note: note });
       }
     }
-    
+
     const result = [];
     for (const key in recordsMap) {
-      result.push({ name: key, sets: recordsMap[key] });
+      result.push({ name: key, sets: recordsMap[key], difficulty: diffMap[key] || 'normal' });
     }
     return result;
   } catch (e) {
@@ -213,15 +219,18 @@ function getRecordsByDate(dateString) {
 // 高效覆寫當日紀錄
 function saveDayRecords(dateString, workoutList) {
   try {
+    const HEADER = ["日期", "動作名稱", "組數", "重量 (kg)", "次數 (下)", "估算 1RM (kg)", "備註", "難度"];
+    const NUM_COLS = HEADER.length; // 8
+
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let sheet = ss.getSheetByName('健身紀錄');
     if (!sheet) {
       sheet = ss.insertSheet('健身紀錄');
-      sheet.appendRow(["日期", "動作名稱", "組數", "重量 (kg)", "次數 (下)", "估算 1RM (kg)", "備註"]);
+      sheet.appendRow(HEADER);
     }
-    
+
     const data = sheet.getDataRange().getValues();
-    const rowsToKeep = [data[0]];
+    const rowsToKeep = [HEADER.slice()]; // 一律以新版 8 欄標題為準
     const targetDate = cleanDateString(dateString);
     if (!targetDate) throw new Error("無效的日期格式");
 
@@ -229,11 +238,15 @@ function saveDayRecords(dateString, workoutList) {
       if (!data[i][0]) continue;
       const rowDate = cleanDateString(data[i][0]);
       if (rowDate !== targetDate) {
-        rowsToKeep.push(data[i]);
+        // 保留其他日期的列，並正規化為 8 欄 (舊資料無難度欄則補空)
+        const row = data[i].slice(0, NUM_COLS);
+        while (row.length < NUM_COLS) row.push('');
+        rowsToKeep.push(row);
       }
     }
-    
+
     workoutList.forEach(item => {
+      const diff = item.difficulty || 'normal';
       item.sets.forEach((set, index) => {
         const rowNum = rowsToKeep.length + 1;
         const oneRmFormula = `=D${rowNum}*(1+E${rowNum}/30)`;
@@ -244,16 +257,65 @@ function saveDayRecords(dateString, workoutList) {
           parseFloat(set.weight) || 0,
           parseInt(set.reps) || 0,
           oneRmFormula,
-          set.note || ""
+          set.note || "",
+          diff
         ]);
       });
     });
-    
+
     sheet.clearContents();
-    sheet.getRange(1, 1, rowsToKeep.length, 7).setValues(rowsToKeep);
+    sheet.getRange(1, 1, rowsToKeep.length, NUM_COLS).setValues(rowsToKeep);
     return { success: true };
   } catch (e) {
     throw new Error("儲存失敗: " + e.message);
+  }
+}
+
+// === 使用者偏好設定 (存於「設定」工作表，A 欄 key、B 欄 value) ===
+// 供前端跨裝置/雲端持久化主題、語言、背景等設定，解決 iOS 主畫面 App 本地儲存被清除的問題。
+function getSettingsSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName('設定');
+  if (!sheet) {
+    sheet = ss.insertSheet('設定');
+    sheet.getRange(1, 1, 1, 2).setValues([['key', 'value']]);
+  }
+  return sheet;
+}
+
+function getUserSettings() {
+  try {
+    const sheet = getSettingsSheet_();
+    const lastRow = sheet.getLastRow();
+    const obj = {};
+    if (lastRow >= 2) {
+      const values = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
+      values.forEach(function(row) {
+        const key = String(row[0]).trim();
+        if (key) obj[key] = row[1];
+      });
+    }
+    return obj;
+  } catch (e) {
+    throw new Error("讀取設定失敗: " + e.message);
+  }
+}
+
+function saveUserSettings(jsonString) {
+  try {
+    const settings = JSON.parse(jsonString);
+    const sheet = getSettingsSheet_();
+    const lastRow = sheet.getLastRow();
+    if (lastRow >= 2) {
+      sheet.getRange(2, 1, lastRow - 1, 2).clearContent(); // 清舊資料、保留標題列
+    }
+    const rows = Object.keys(settings).map(function(k) { return [k, settings[k]]; });
+    if (rows.length > 0) {
+      sheet.getRange(2, 1, rows.length, 2).setValues(rows);
+    }
+    return { success: true };
+  } catch (e) {
+    throw new Error("儲存設定失敗: " + e.message);
   }
 }
 
