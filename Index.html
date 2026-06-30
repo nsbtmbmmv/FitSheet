@@ -1643,13 +1643,13 @@
       scheduleAutoSave();
     }
 
-    // 動作折疊/展開狀態 (以動作名稱為鍵，當日動作名稱不重複)
-    let collapsedExercises = {};
+    // 動作折疊/展開狀態 (存於動作物件上，隨紀錄一起儲存至 Sheet、下次載入還原)
     function toggleCollapseExercise(exIdx) {
       const w = currentWorkout[exIdx];
       if (!w) return;
-      collapsedExercises[w.name] = !collapsedExercises[w.name];
+      w.collapsed = !w.collapsed;
       renderWorkout();
+      scheduleAutoSave();
     }
 
     // 渲染今日訓練表 (導入困難度動態色彩與更細密的 UI)
@@ -1745,7 +1745,7 @@
         const hardTxt = TRANSLATIONS[currentLang].difficulty_hard;
 
         // 折疊狀態與卡片內容 (折疊時隱藏組數明細與新增組，僅保留標題列)
-        const isCollapsed = !!collapsedExercises[workout.name];
+        const isCollapsed = !!workout.collapsed;
         const bodyHtml = isCollapsed ? '' : `
           <div class="space-y-2">
             ${setsHtml}

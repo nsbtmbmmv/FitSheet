@@ -181,6 +181,7 @@ function getRecordsByDate(dateString) {
     
     const recordsMap = {};
     const diffMap = {};
+    const collapseMap = {};
     const VALID_DIFF = ['easy', 'normal', 'hard'];
     const targetDate = cleanDateString(dateString);
     if (!targetDate) return [];
@@ -197,10 +198,14 @@ function getRecordsByDate(dateString) {
         // 難度位於第 8 欄 (索引 7)；舊資料無此欄時預設 normal
         let diff = data[i][7] ? data[i][7].toString().trim() : 'normal';
         if (VALID_DIFF.indexOf(diff) === -1) diff = 'normal';
+        // 折疊狀態位於第 9 欄 (索引 8)；接受布林 true 或字串 "true"/"TRUE"
+        const rawCollapse = data[i][8];
+        const collapsed = (rawCollapse === true || String(rawCollapse).trim().toLowerCase() === 'true');
 
         if (!recordsMap[exerciseName]) {
           recordsMap[exerciseName] = [];
-          diffMap[exerciseName] = diff; // 以該動作第一列的難度為準
+          diffMap[exerciseName] = diff;          // 以該動作第一列的難度為準
+          collapseMap[exerciseName] = collapsed; // 以該動作第一列的折疊狀態為準
         }
         recordsMap[exerciseName].push({ weight: weight, reps: reps, note: note });
       }
@@ -208,7 +213,7 @@ function getRecordsByDate(dateString) {
 
     const result = [];
     for (const key in recordsMap) {
-      result.push({ name: key, sets: recordsMap[key], difficulty: diffMap[key] || 'normal' });
+      result.push({ name: key, sets: recordsMap[key], difficulty: diffMap[key] || 'normal', collapsed: !!collapseMap[key] });
     }
     return result;
   } catch (e) {
@@ -219,8 +224,8 @@ function getRecordsByDate(dateString) {
 // 高效覆寫當日紀錄
 function saveDayRecords(dateString, workoutList) {
   try {
-    const HEADER = ["日期", "動作名稱", "組數", "重量 (kg)", "次數 (下)", "估算 1RM (kg)", "備註", "難度"];
-    const NUM_COLS = HEADER.length; // 8
+    const HEADER = ["日期", "動作名稱", "組數", "重量 (kg)", "次數 (下)", "估算 1RM (kg)", "備註", "難度", "折疊"];
+    const NUM_COLS = HEADER.length; // 9
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let sheet = ss.getSheetByName('健身紀錄');
@@ -247,6 +252,7 @@ function saveDayRecords(dateString, workoutList) {
 
     workoutList.forEach(item => {
       const diff = item.difficulty || 'normal';
+      const collapsed = !!item.collapsed;
       item.sets.forEach((set, index) => {
         const rowNum = rowsToKeep.length + 1;
         const oneRmFormula = `=ROUND(D${rowNum}*(1+E${rowNum}/30),1)`;
@@ -258,7 +264,8 @@ function saveDayRecords(dateString, workoutList) {
           parseInt(set.reps) || 0,
           oneRmFormula,
           set.note || "",
-          diff
+          diff,
+          collapsed
         ]);
       });
     });
