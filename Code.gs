@@ -249,7 +249,7 @@ function saveDayRecords(dateString, workoutList) {
       const diff = item.difficulty || 'normal';
       item.sets.forEach((set, index) => {
         const rowNum = rowsToKeep.length + 1;
-        const oneRmFormula = `=D${rowNum}*(1+E${rowNum}/30)`;
+        const oneRmFormula = `=ROUND(D${rowNum}*(1+E${rowNum}/30),1)`;
         rowsToKeep.push([
           dateString,
           item.name,
