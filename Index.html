@@ -483,14 +483,14 @@
           背景自訂 (Background)
         </h2>
 
-        <!-- 主背景圖片 -->
+        <!-- 主背景圖片網址 -->
         <div class="space-y-3">
-          <label class="block text-xs font-bold text-slate-500 dark:text-slate-400">主背景圖片 (Main Background)</label>
+          <label class="block text-xs font-bold text-slate-500 dark:text-slate-400">主背景圖片網址 (Main Background URL)</label>
           <div class="flex flex-wrap items-center gap-2">
-            <label class="cursor-pointer theme-accent-bg hover:opacity-90 font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition flex items-center gap-1.5">
-              <i data-lucide="upload" class="h-3.5 w-3.5"></i> 選擇圖片
-              <input type="file" accept="image/*" onchange="setMainBgImage(this)" class="hidden">
-            </label>
+            <input type="url" id="mainBgUrl" placeholder="貼上圖片網址 https://..." class="flex-grow min-w-[180px] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:theme-accent-border">
+            <button onclick="setMainBgUrl()" class="theme-accent-bg hover:opacity-90 font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition flex items-center gap-1.5">
+              <i data-lucide="check" class="h-3.5 w-3.5"></i> 套用
+            </button>
             <button onclick="clearMainBgImage()" class="text-xs font-bold bg-slate-100 dark:bg-slate-850 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 px-4 py-2.5 rounded-xl transition flex items-center gap-1.5">
               <i data-lucide="trash-2" class="h-3.5 w-3.5"></i> 移除
             </button>
@@ -521,14 +521,14 @@
           </div>
         </div>
 
-        <!-- 卡片 (Session) 背景圖片與透明度 -->
+        <!-- 卡片 (Session) 背景圖片網址與透明度 -->
         <div class="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-800">
-          <label class="block text-xs font-bold text-slate-500 dark:text-slate-400">卡片背景 (Session Background)</label>
+          <label class="block text-xs font-bold text-slate-500 dark:text-slate-400">卡片背景圖片網址 (Session Background URL)</label>
           <div class="flex flex-wrap items-center gap-2">
-            <label class="cursor-pointer theme-accent-bg hover:opacity-90 font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition flex items-center gap-1.5">
-              <i data-lucide="upload" class="h-3.5 w-3.5"></i> 選擇圖片
-              <input type="file" accept="image/*" onchange="setSectionBgImage(this)" class="hidden">
-            </label>
+            <input type="url" id="sectionBgUrl" placeholder="貼上圖片網址 https://..." class="flex-grow min-w-[180px] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:theme-accent-border">
+            <button onclick="setSectionBgUrl()" class="theme-accent-bg hover:opacity-90 font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition flex items-center gap-1.5">
+              <i data-lucide="check" class="h-3.5 w-3.5"></i> 套用
+            </button>
             <button onclick="clearSectionBgImage()" class="text-xs font-bold bg-slate-100 dark:bg-slate-850 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 px-4 py-2.5 rounded-xl transition flex items-center gap-1.5">
               <i data-lucide="trash-2" class="h-3.5 w-3.5"></i> 移除
             </button>
@@ -609,40 +609,47 @@
   <script>
     // --- GAS 環境相容性安全防護 (避免在非 GAS 環境預覽時卡在讀取中) ---
     if (typeof google === 'undefined' || !google.script || !google.script.run) {
+      // 模擬真實 google.script.run：withSuccessHandler/withFailureHandler 皆回傳 runner 本身，
+      // 可任意順序、可省略，server 函式呼叫後以對應 handler 回傳結果。
+      const makeMockRunner = function() {
+        const runner = {
+          _success: function() {},
+          _failure: function() {},
+          withSuccessHandler: function(cb) { runner._success = cb || function(){}; return runner; },
+          withFailureHandler: function(cb) { runner._failure = cb || function(){}; return runner; }
+        };
+        const resolve = function(value, delay) {
+          setTimeout(() => runner._success(value), delay || 300);
+        };
+        runner.getSpreadsheetUrl = function() { resolve("https://docs.google.com/spreadsheets"); };
+        runner.getExerciseMenu = function() { resolve(MOCK_DEFAULT_MENU); };
+        runner.getRecordsByDate = function(dateStr) {
+          const localData = localStorage.getItem('fitsheet_workout_' + dateStr);
+          resolve(localData ? JSON.parse(localData) : []);
+        };
+        runner.saveDayRecords = function(dateStr, workoutList) {
+          localStorage.setItem('fitsheet_workout_' + dateStr, JSON.stringify(workoutList));
+          resolve({ success: true });
+        };
+        runner.addCustomExerciseToSheet = function(name, group) {
+          MOCK_DEFAULT_MENU.push({ name: name, group: group });
+          resolve({ success: true });
+        };
+        runner.resetExerciseMenuToDefault = function() { resolve({ success: true }); };
+        runner.getUserSettings = function() {
+          const raw = localStorage.getItem('fitsheet_user_settings');
+          resolve(raw ? JSON.parse(raw) : {}, 200);
+        };
+        runner.saveUserSettings = function(jsonString) {
+          localStorage.setItem('fitsheet_user_settings', jsonString);
+          resolve({ success: true }, 200);
+        };
+        return runner;
+      };
+      // 每次存取 google.script.run 都給一個新的 runner，避免 handler 互相覆蓋
       window.google = {
         script: {
-          run: {
-            withSuccessHandler: function(successCallback) {
-              return {
-                withFailureHandler: function(failureCallback) {
-                  return {
-                    getSpreadsheetUrl: function() {
-                      setTimeout(() => successCallback("https://docs.google.com/spreadsheets"), 300);
-                    },
-                    getExerciseMenu: function() {
-                      setTimeout(() => successCallback(MOCK_DEFAULT_MENU), 300);
-                    },
-                    getRecordsByDate: function(dateStr) {
-                      const localData = localStorage.getItem('fitsheet_workout_' + dateStr);
-                      const records = localData ? JSON.parse(localData) : [];
-                      setTimeout(() => successCallback(records), 300);
-                    },
-                    saveDayRecords: function(dateStr, workoutList) {
-                      localStorage.setItem('fitsheet_workout_' + dateStr, JSON.stringify(workoutList));
-                      setTimeout(() => successCallback({ success: true }), 300);
-                    },
-                    addCustomExerciseToSheet: function(name, group) {
-                      MOCK_DEFAULT_MENU.push({ name: name, group: group });
-                      setTimeout(() => successCallback({ success: true }), 300);
-                    },
-                    resetExerciseMenuToDefault: function() {
-                      setTimeout(() => successCallback({ success: true }), 300);
-                    }
-                  };
-                }
-              };
-            }
-          }
+          get run() { return makeMockRunner(); }
         }
       };
     }
@@ -894,6 +901,91 @@
     let customColor = '#10B981';
     let isRainbow = false;
 
+    // --- 使用者偏好設定 (雲端持久化於 Google Sheet；localStorage 僅作即時繪製快取) ---
+    // GAS 網頁 App 在 iOS 主畫面 standalone 下沙箱 iframe 的本地儲存會被清除，
+    // 故所有設定改以 Sheet 為權威來源，啟動先用快取即時套用、再由雲端覆寫。
+    let appSettings = {
+      themeMode: 'dark',
+      themeColor: '#10B981',
+      isRainbow: false,
+      lang: 'zh',
+      mainBgUrl: '',
+      mainBgPos: 'center',
+      mainBgSize: 'cover',
+      sectionBgUrl: '',
+      sectionOpacity: ''
+    };
+    const SETTINGS_CACHE_KEY = 'fitsheet_user_settings';
+    let settingsReady = false;     // 雲端載入完成前不上傳，避免用預設覆寫雲端
+    let settingsSaveTimer = null;
+
+    // 寫入本地快取並排程雲端儲存 (debounce 800ms)
+    function persistSettings() {
+      try { localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(appSettings)); } catch (e) {}
+      if (!settingsReady) return;  // 初始化套用階段不觸發上傳
+      if (settingsSaveTimer) clearTimeout(settingsSaveTimer);
+      settingsSaveTimer = setTimeout(function() {
+        google.script.run
+          .withSuccessHandler(function() {})
+          .withFailureHandler(function(err) { showToast("設定同步失敗: " + (err && err.message || '')); })
+          .saveUserSettings(JSON.stringify(appSettings));
+      }, 800);
+    }
+
+    // 啟動時先讀本地快取；若無快取則自舊版 localStorage 鍵遷移 (大圖 dataURL 不遷移，改用網址)
+    function loadSettingsFromCache() {
+      let cached = null;
+      try { cached = JSON.parse(localStorage.getItem(SETTINGS_CACHE_KEY) || 'null'); } catch (e) {}
+      if (cached && typeof cached === 'object') {
+        Object.assign(appSettings, cached);
+        return;
+      }
+      const oldMode = localStorage.getItem('fitsheet_theme');
+      const oldColor = localStorage.getItem('fitsheet_theme_color');
+      const oldRainbow = localStorage.getItem('fitsheet_theme_is_rainbow');
+      const oldPos = localStorage.getItem('fitsheet_main_bg_pos');
+      const oldSize = localStorage.getItem('fitsheet_main_bg_size');
+      const oldOpacity = localStorage.getItem('fitsheet_section_opacity');
+      if (oldMode) appSettings.themeMode = oldMode;
+      if (oldColor) appSettings.themeColor = oldColor;
+      if (oldRainbow != null) appSettings.isRainbow = (oldRainbow === 'true');
+      if (oldPos) appSettings.mainBgPos = oldPos;
+      if (oldSize) appSettings.mainBgSize = oldSize;
+      if (oldOpacity != null) appSettings.sectionOpacity = oldOpacity;
+    }
+
+    // 將雲端回傳值 (可能為字串) 正規化後併入 appSettings
+    function applyCloudSettings(cloud) {
+      if (!cloud || typeof cloud !== 'object') return;
+      if (cloud.themeMode) appSettings.themeMode = cloud.themeMode;
+      if (cloud.themeColor) appSettings.themeColor = cloud.themeColor;
+      if (cloud.isRainbow !== undefined) {
+        appSettings.isRainbow = (cloud.isRainbow === true || cloud.isRainbow === 'true' || cloud.isRainbow === 'TRUE');
+      }
+      if (cloud.lang) appSettings.lang = cloud.lang;
+      if (cloud.mainBgUrl !== undefined) appSettings.mainBgUrl = cloud.mainBgUrl;
+      if (cloud.mainBgPos) appSettings.mainBgPos = cloud.mainBgPos;
+      if (cloud.mainBgSize) appSettings.mainBgSize = cloud.mainBgSize;
+      if (cloud.sectionBgUrl !== undefined) appSettings.sectionBgUrl = cloud.sectionBgUrl;
+      if (cloud.sectionOpacity !== undefined && cloud.sectionOpacity !== '') {
+        appSettings.sectionOpacity = String(cloud.sectionOpacity);
+      }
+    }
+
+    // 依 appSettings 套用全部設定 (不觸發上傳)
+    function applyAllSettings() {
+      setThemeMode(appSettings.themeMode || 'dark', false);
+      if (appSettings.isRainbow) {
+        enableRainbowAccent(false);
+      } else {
+        changeThemeColor(appSettings.themeColor || '#10B981', false);
+      }
+      changeLanguage(appSettings.lang || 'zh', false);
+      syncBgControls();
+      applyMainBg();
+      applySectionStyle();
+    }
+
     // 計算對比前景色 (確保主色調在當前背景下的易讀性)
     function getContrastColor(hex) {
       if (hex.indexOf('#') === 0) hex = hex.slice(1);
@@ -902,23 +994,6 @@
             g = parseInt(hex.slice(2, 4), 16),
             b = parseInt(hex.slice(4, 6), 16);
       return (r * 299 + g * 587 + b * 114) / 1000 >= 140 ? '#0f172a' : '#ffffff';
-    }
-
-    // 初始化佈景與主色調
-    function initThemeAndColor() {
-      // 載入佈景主題 (白天/夜間)
-      currentTheme = localStorage.getItem('fitsheet_theme') || 'dark';
-      setThemeMode(currentTheme, false);
-
-      // 載入主色調顏色
-      customColor = localStorage.getItem('fitsheet_theme_color') || '#10B981';
-      isRainbow = localStorage.getItem('fitsheet_theme_is_rainbow') === 'true';
-
-      if (isRainbow) {
-        enableRainbowAccent(false);
-      } else {
-        changeThemeColor(customColor, false);
-      }
     }
 
     // 輔助函式：自訂主題按鈕樣式切換
@@ -944,7 +1019,8 @@
       }
 
       if (save) {
-        localStorage.setItem('fitsheet_theme', mode);
+        appSettings.themeMode = mode;
+        persistSettings();
       }
     }
 
@@ -976,8 +1052,9 @@
       document.getElementById('rainbowThemeBtn').classList.remove('ring-4', 'ring-slate-300', 'dark:ring-slate-700');
 
       if (save) {
-        localStorage.setItem('fitsheet_theme_color', color);
-        localStorage.setItem('fitsheet_theme_is_rainbow', 'false');
+        appSettings.themeColor = color;
+        appSettings.isRainbow = false;
+        persistSettings();
       }
     }
 
@@ -1019,7 +1096,8 @@
       document.getElementById('rainbowThemeBtn').classList.add('ring-4', 'ring-slate-300', 'dark:ring-slate-700');
 
       if (save) {
-        localStorage.setItem('fitsheet_theme_is_rainbow', 'true');
+        appSettings.isRainbow = true;
+        persistSettings();
       }
     }
 
@@ -1028,75 +1106,15 @@
       changeThemeColor('#10B981');
     }
 
-    // --- 背景自訂 (主背景圖片/對齊、卡片背景圖片/透明度) ---
-    // 讀取使用者選取的圖片檔並轉成 DataURL 回傳
-    function readImageFile(input, cb) {
-      const file = input.files && input.files[0];
-      if (!file) return;
-      if (!file.type.startsWith('image/')) { showToast("請選擇圖片檔"); return; }
-      const reader = new FileReader();
-      reader.onload = function(e) { cb(e.target.result); };
-      reader.readAsDataURL(file);
-      input.value = ''; // 允許重複選同一檔
-    }
-
-    // 將 dataURL 圖片等比縮放並壓縮成 JPEG (僅縮小不放大)，大幅降低 localStorage 佔用
-    function compressImage(dataUrl, maxDim, quality, cb) {
-      const img = new Image();
-      img.onload = function() {
-        let width = img.naturalWidth || img.width;
-        let height = img.naturalHeight || img.height;
-        const longest = Math.max(width, height);
-        if (longest > maxDim) {
-          const scale = maxDim / longest;
-          width = Math.round(width * scale);
-          height = Math.round(height * scale);
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-        cb(canvas.toDataURL('image/jpeg', quality));
-      };
-      img.onerror = function() { showToast("圖片讀取失敗"); };
-      img.src = dataUrl;
-    }
-
-    // 嘗試將壓縮後圖片寫入 localStorage；配額不足時自動降階 (更小尺寸/更低品質) 重試
-    function saveBgWithFallback(key, srcDataUrl, applyFn, okMsg, startStep) {
-      // 降階參數：依序嘗試 (maxDim, quality)，越後面越小
-      const steps = [
-        [1920, 0.82],
-        [1280, 0.72],
-        [960, 0.6],
-        [640, 0.5]
-      ];
-
-      function tryStep(i) {
-        if (i >= steps.length) {
-          showToast("圖片過大無法儲存，請改用較小的圖片");
-          return;
-        }
-        compressImage(srcDataUrl, steps[i][0], steps[i][1], function(out) {
-          try {
-            localStorage.setItem(key, out);
-            applyFn();
-            showToast(okMsg);
-          } catch (e) {
-            // 配額不足，改用更小的設定重試
-            tryStep(i + 1);
-          }
-        });
-      }
-      tryStep(startStep || 0);
-    }
+    // --- 背景自訂 (主背景圖片網址/對齊、卡片背景圖片網址/透明度) ---
+    // 背景圖改以「圖片網址」儲存 (僅一段 URL 字串，可隨其他設定一起存進 Google Sheet)，
+    // 解決 GAS 網頁 App 在 iOS standalone 下本地儲存被清除導致背景不持久的問題。
 
     // 套用主背景 (body)
     function applyMainBg() {
-      const img = localStorage.getItem('fitsheet_main_bg');
-      const pos = localStorage.getItem('fitsheet_main_bg_pos') || 'center';
-      const size = localStorage.getItem('fitsheet_main_bg_size') || 'cover';
+      const img = appSettings.mainBgUrl;
+      const pos = appSettings.mainBgPos || 'center';
+      const size = appSettings.mainBgSize || 'cover';
       const body = document.body;
       if (img) {
         body.style.backgroundImage = `url("${img}")`;
@@ -1113,34 +1131,39 @@
       }
     }
 
-    function setMainBgImage(input) {
-      readImageFile(input, function(dataUrl) {
-        // 主背景：自最大尺寸 1920 起壓縮，配額不足時自動降階
-        saveBgWithFallback('fitsheet_main_bg', dataUrl, applyMainBg, "已套用主背景圖片", 0);
-      });
+    // 套用主背景網址 (讀取輸入框)
+    function setMainBgUrl() {
+      const url = (document.getElementById('mainBgUrl').value || '').trim();
+      appSettings.mainBgUrl = url;
+      applyMainBg();
+      persistSettings();
+      showToast(url ? "已套用主背景圖片" : "已清除主背景圖片");
     }
 
     function applyMainBgFromControls() {
-      localStorage.setItem('fitsheet_main_bg_pos', document.getElementById('mainBgPosition').value);
-      localStorage.setItem('fitsheet_main_bg_size', document.getElementById('mainBgSize').value);
+      appSettings.mainBgPos = document.getElementById('mainBgPosition').value;
+      appSettings.mainBgSize = document.getElementById('mainBgSize').value;
       applyMainBg();
+      persistSettings();
     }
 
     function clearMainBgImage() {
-      localStorage.removeItem('fitsheet_main_bg');
+      appSettings.mainBgUrl = '';
+      const el = document.getElementById('mainBgUrl'); if (el) el.value = '';
       applyMainBg();
+      persistSettings();
       showToast("已移除主背景圖片");
     }
 
-    // 套用卡片 (section) 背景圖片與不透明度 (注入動態樣式)
+    // 套用卡片 (section) 背景圖片網址與不透明度 (注入動態樣式)
     function applySectionStyle() {
-      const img = localStorage.getItem('fitsheet_section_bg');
-      const opacity = localStorage.getItem('fitsheet_section_opacity');
+      const img = appSettings.sectionBgUrl;
+      const opacity = appSettings.sectionOpacity;
       let css = '';
       if (img) {
         css += `main section{background-image:url("${img}")!important;background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important;}`;
       }
-      if (opacity !== null && opacity !== '') {
+      if (opacity !== null && opacity !== undefined && opacity !== '') {
         const a = Math.max(0, Math.min(100, parseInt(opacity) || 0)) / 100;
         // slate-50 (#f8fafc) / slate-950 (#020617)，依當前主題覆寫卡片底色透明度
         css += `html:not(.dark) main section{background-color:rgba(248,250,252,${a})!important;}`;
@@ -1155,45 +1178,45 @@
       styleEl.innerHTML = css;
     }
 
-    function setSectionBgImage(input) {
-      readImageFile(input, function(dataUrl) {
-        // 卡片背景顯示尺寸較小，自最大尺寸 1280 起壓縮 (steps 索引 1)
-        saveBgWithFallback('fitsheet_section_bg', dataUrl, applySectionStyle, "已套用卡片背景圖片", 1);
-      });
+    // 套用卡片背景網址 (讀取輸入框)
+    function setSectionBgUrl() {
+      const url = (document.getElementById('sectionBgUrl').value || '').trim();
+      appSettings.sectionBgUrl = url;
+      applySectionStyle();
+      persistSettings();
+      showToast(url ? "已套用卡片背景圖片" : "已清除卡片背景圖片");
     }
 
     function clearSectionBgImage() {
-      localStorage.removeItem('fitsheet_section_bg');
+      appSettings.sectionBgUrl = '';
+      const el = document.getElementById('sectionBgUrl'); if (el) el.value = '';
       applySectionStyle();
+      persistSettings();
       showToast("已移除卡片背景圖片");
     }
 
     function applySectionOpacity(val) {
       document.getElementById('sectionOpacityVal').innerText = val + '%';
-      localStorage.setItem('fitsheet_section_opacity', val);
+      appSettings.sectionOpacity = val;
       applySectionStyle();
+      persistSettings();
     }
 
-    // 初始化背景設定 (還原控制項狀態並套用)
-    function initBackgrounds() {
-      const pos = localStorage.getItem('fitsheet_main_bg_pos') || 'center';
-      const size = localStorage.getItem('fitsheet_main_bg_size') || 'cover';
-      const opacity = localStorage.getItem('fitsheet_section_opacity');
-
+    // 依 appSettings 還原背景控制項的顯示狀態
+    function syncBgControls() {
+      const mainUrlEl = document.getElementById('mainBgUrl');
+      const sectionUrlEl = document.getElementById('sectionBgUrl');
       const posEl = document.getElementById('mainBgPosition');
       const sizeEl = document.getElementById('mainBgSize');
-      if (posEl) posEl.value = pos;
-      if (sizeEl) sizeEl.value = size;
-
-      if (opacity !== null && opacity !== '') {
-        const opEl = document.getElementById('sectionOpacity');
-        const opValEl = document.getElementById('sectionOpacityVal');
-        if (opEl) opEl.value = opacity;
-        if (opValEl) opValEl.innerText = opacity + '%';
-      }
-
-      applyMainBg();
-      applySectionStyle();
+      const opEl = document.getElementById('sectionOpacity');
+      const opValEl = document.getElementById('sectionOpacityVal');
+      if (mainUrlEl) mainUrlEl.value = appSettings.mainBgUrl || '';
+      if (sectionUrlEl) sectionUrlEl.value = appSettings.sectionBgUrl || '';
+      if (posEl) posEl.value = appSettings.mainBgPos || 'center';
+      if (sizeEl) sizeEl.value = appSettings.mainBgSize || 'cover';
+      const op = (appSettings.sectionOpacity === '' || appSettings.sectionOpacity == null) ? 100 : appSettings.sectionOpacity;
+      if (opEl) opEl.value = op;
+      if (opValEl) opValEl.innerText = op + '%';
     }
 
     // --- 多語系轉換邏輯 ---
@@ -1212,13 +1235,17 @@
       }
     }
 
-    function changeLanguage(lang) {
+    function changeLanguage(lang, save = true) {
       currentLang = lang;
       document.getElementById('langSelectDesktop').value = lang;
       document.getElementById('langSelectSettings').value = lang;
       translateUI();
       renderWorkout();
       updateSharePreview();
+      if (save) {
+        appSettings.lang = lang;
+        persistSettings();
+      }
     }
 
     // --- PWA 分頁控制 ---
@@ -1265,9 +1292,9 @@
 
     // 初始化與串接 GAS
     window.onload = function() {
-      // 優先載入佈景樣式設定
-      initThemeAndColor();
-      initBackgrounds();
+      // 先以本地快取即時套用設定 (避免閃白/閃主題)，稍後由雲端覆寫
+      loadSettingsFromCache();
+      applyAllSettings();
 
       const today = new Date().toISOString().split('T')[0];
       document.getElementById('selectedDate').value = today;
@@ -1279,9 +1306,24 @@
         if (guideLink) guideLink.href = url;
       }).getSpreadsheetUrl();
 
+      // 自雲端 (Google Sheet) 載入設定，作為權威來源
+      google.script.run
+        .withSuccessHandler(function(cloud) {
+          const hadCloud = cloud && typeof cloud === 'object' && Object.keys(cloud).length > 0;
+          if (hadCloud) {
+            applyCloudSettings(cloud);
+            applyAllSettings();
+          }
+          settingsReady = true;
+          // 雲端為空 (首次升級)：把目前 (遷移自本地或預設) 的設定種回 Sheet
+          if (!hadCloud) persistSettings();
+        })
+        .withFailureHandler(function() { settingsReady = true; })
+        .getUserSettings();
+
       // 載入選單與當日紀錄
       loadExerciseMenu(true);
-      
+
       // 預設切換至 訓練 分頁
       switchTab('workout');
 
