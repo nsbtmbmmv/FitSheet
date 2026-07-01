@@ -94,7 +94,7 @@
   <svg width="0" height="0" class="absolute pointer-events-none" aria-hidden="true">
     <defs>
       <!-- 使用 userSpaceOnUse 對應 Lucide 24x24 viewBox，讓圖示內每個線條/圓/路徑共用同一道漸層，避免細線元素 (零寬/零高 bounding box) 套色失敗而消失 -->
-      <linearGradient id="rainbow-gradient" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <linearGradient id="rainbow-gradient" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse" gradientTransform="rotate(90 12 12)">
         <stop offset="0%" stop-color="#ff4b4b" />
         <stop offset="20%" stop-color="#ff7f00" />
         <stop offset="40%" stop-color="#ffdd00" />
@@ -150,7 +150,7 @@
           <option value="ja">日本語</option>
           <option value="ko">한국어</option>
         </select>
-        <a id="sheetLink" href="#" target="_blank" class="text-xs bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 rounded-xl transition flex items-center gap-1.5 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800">
+        <a id="sheetLink" href="#" target="_blank" class="text-xs theme-accent-bg hover:opacity-90 font-semibold rounded-xl px-3 py-2 shadow-md transition flex items-center gap-1.5">
           <i data-lucide="external-link" class="h-3.5 w-3.5"></i> <span data-t="open_sheet">開啟試算表</span>
         </a>
       </div>
@@ -174,7 +174,7 @@
           </div>
         </div>
         <div class="flex gap-2 self-end sm:self-auto">
-          <button onclick="setToday()" class="px-3 py-1.5 text-xs font-semibold bg-slate-100 dark:bg-slate-850 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl transition" data-t="btn_today">
+          <button onclick="setToday()" class="px-3 py-1.5 text-xs font-semibold theme-accent-bg hover:opacity-90 shadow-md rounded-xl transition" data-t="btn_today">
             今天
           </button>
           <button onclick="shiftDate(-1)" class="p-1.5 text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-850 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition">
@@ -189,7 +189,7 @@
       <!-- 新增動作控制台 -->
       <section class="bg-white dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-5 shadow-xl space-y-4 transition-colors duration-300">
         <h2 class="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
-          <i data-lucide="plus-circle" class="h-4.5 w-4.5 theme-accent-text animate-pulse"></i>
+          <i data-lucide="plus-circle" class="h-4.5 w-4.5 theme-accent-text"></i>
           <span data-t="add_today_workout">新增今日動作</span>
         </h2>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -285,7 +285,7 @@
                 </div>
                 <label class="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" id="shareTransBg" checked onchange="updateSharePreview()" class="sr-only peer">
-                  <div class="w-11 h-6 bg-slate-350 dark:bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-100 after:border-slate-300 dark:after:border-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                  <div class="theme-accent-peer w-11 h-6 bg-slate-350 dark:bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-100 after:border-slate-300 dark:after:border-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
                 </label>
               </div>
             </div>
@@ -344,7 +344,7 @@
               <option value="核心與其他 (Core & Others)">核心與其他 (Core & Others)</option>
             </select>
           </div>
-          <button onclick="addNewExerciseToMenu()" class="w-full bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-755 text-slate-800 dark:text-white font-semibold text-xs py-2.5 rounded-xl transition">
+          <button onclick="addNewExerciseToMenu()" class="w-full theme-accent-bg hover:opacity-90 font-semibold text-xs py-2.5 rounded-xl shadow-md transition">
             + 新增動作至雲端選單
           </button>
         </div>
@@ -457,7 +457,7 @@
               </div>
               
               <!-- 特製彩虹漸層按鈕 -->
-              <button onclick="enableRainbowAccent()" id="rainbowThemeBtn" class="px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 shadow-lg hover:opacity-90 transition flex items-center justify-center gap-1.5 animate-pulse">
+              <button onclick="enableRainbowAccent()" id="rainbowThemeBtn" style="background:linear-gradient(90deg,#ff4b4b,#ff7f00,#ffdd00,#00e676,#00b0ff,#aa00ff)" class="px-4 py-2.5 rounded-xl text-xs font-bold text-white shadow-lg hover:opacity-90 transition flex items-center justify-center gap-1.5">
                 <i data-lucide="sparkles" class="h-4 w-4 text-yellow-200"></i> 彩虹漸層色
               </button>
               
@@ -535,7 +535,7 @@
           </div>
           <div>
             <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">卡片不透明度 <span id="sectionOpacityVal" class="theme-accent-text">100%</span></label>
-            <input type="range" min="0" max="100" value="100" id="sectionOpacity" oninput="applySectionOpacity(this.value)" class="w-full cursor-pointer accent-emerald-500">
+            <input type="range" min="0" max="100" value="100" id="sectionOpacity" oninput="applySectionOpacity(this.value)" class="theme-accent-range w-full cursor-pointer accent-emerald-500">
             <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">降低不透明度可讓主背景透出卡片，營造玻璃感。</p>
           </div>
         </div>
@@ -1041,6 +1041,8 @@
         .theme-accent-bg { background-color: ${color} !important; color: ${contrast} !important; }
         .theme-accent-border { border-color: ${color} !important; }
         .loading-spinner { border-top-color: ${color} !important; }
+        .peer:checked ~ .theme-accent-peer { background-color: ${color} !important; }
+        .theme-accent-range { accent-color: ${color} !important; }
       `;
       if (!styleEl.parentNode) document.head.appendChild(styleEl);
 
@@ -1083,8 +1085,15 @@
           background: linear-gradient(90deg, #ff4b4b, #ff7f00, #ffdd00, #00e676, #00b0ff, #aa00ff) !important;
           color: #ffffff !important;
         }
+        /* 不用 border-image (會讓圓角變直角並失去背景)，改用單一代表色的實線邊框以保留圓角 */
         .theme-accent-border {
-          border-image: linear-gradient(90deg, #ff4b4b, #ff7f00, #ffdd00, #00e676, #00b0ff, #aa00ff) 1 !important;
+          border-color: #00b0ff !important;
+        }
+        .peer:checked ~ .theme-accent-peer {
+          background: linear-gradient(90deg, #ff4b4b, #ff7f00, #ffdd00, #00e676, #00b0ff, #aa00ff) !important;
+        }
+        .theme-accent-range {
+          accent-color: #00b0ff !important;
         }
         .loading-spinner {
           border-top-color: #ff4b4b !important;
@@ -1803,6 +1812,19 @@
     }
 
     // 取得當週的星期一到星期日
+    // 取得 ISO 8601 年與週數 (以該週週四所在年份為準)
+    function getYearWeek(dateStr) {
+      const d = new Date(dateStr + 'T00:00:00');
+      const dayNr = (d.getDay() + 6) % 7;            // 週一=0 ... 週日=6
+      d.setDate(d.getDate() - dayNr + 3);            // 移到本週的週四
+      const isoYear = d.getFullYear();
+      const firstThursday = new Date(isoYear, 0, 4); // 1/4 必落在第 1 週
+      const firstDayNr = (firstThursday.getDay() + 6) % 7;
+      firstThursday.setDate(firstThursday.getDate() - firstDayNr + 3);
+      const week = 1 + Math.round((d - firstThursday) / (7 * 86400000));
+      return { year: isoYear, week: week };
+    }
+
     function getWeekRangeAndCounts() {
       const todayStr = document.getElementById('selectedDate').value;
       const today = new Date(todayStr);
@@ -1892,7 +1914,8 @@
         }
       } 
       else if (sharePeriod === 'week') {
-        text += `📅 FitSheet 每週紀錄報表\n`;
+        const yw = getYearWeek(document.getElementById('selectedDate').value);
+        text += `📅 FitSheet 每週紀錄報表 | ${yw.year}-第${yw.week}週\n`;
         text += `--------------------------------\n`;
         const weekData = getWeekRangeAndCounts();
         weekData.forEach(item => {
