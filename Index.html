@@ -996,27 +996,33 @@
       return (r * 299 + g * 587 + b * 114) / 1000 >= 140 ? '#0f172a' : '#ffffff';
     }
 
+    // 依 currentTheme 與 isRainbow 更新主題模式按鈕的選取樣式
+    // 彩虹漸層色時不套用 border-emerald-500 / theme-accent-border (避免彩色實線邊框)
+    function updateThemeButtons() {
+      const light = document.getElementById('themeBtnLight');
+      const dark = document.getElementById('themeBtnDark');
+      if (!light || !dark) return;
+
+      const ACCENT = ['border-emerald-500', 'theme-accent-border', 'theme-accent-text'];
+      [light, dark].forEach(b => b.classList.remove('border-emerald-500', 'theme-accent-border', 'theme-accent-text', 'bg-white', 'bg-slate-900'));
+
+      const sel = currentTheme === 'light' ? light : dark;
+      const selBg = currentTheme === 'light' ? 'bg-white' : 'bg-slate-900';
+      sel.classList.add('theme-accent-text', selBg);
+      // 彩虹模式不加彩色邊框，僅保留文字與底色高亮
+      if (!isRainbow) sel.classList.add('border-emerald-500', 'theme-accent-border');
+    }
+
     // 輔助函式：自訂主題按鈕樣式切換
     function setThemeMode(mode, save = true) {
       currentTheme = mode;
       const htmlEl = document.documentElement;
-      
-      const themeBtnLight = document.getElementById('themeBtnLight');
-      const themeBtnDark = document.getElementById('themeBtnDark');
-
       if (mode === 'light') {
         htmlEl.classList.remove('dark');
-        if (themeBtnLight && themeBtnDark) {
-          themeBtnLight.classList.add('border-emerald-500', 'theme-accent-border', 'theme-accent-text', 'bg-white');
-          themeBtnDark.classList.remove('border-emerald-500', 'theme-accent-border', 'theme-accent-text', 'bg-white');
-        }
       } else {
         htmlEl.classList.add('dark');
-        if (themeBtnLight && themeBtnDark) {
-          themeBtnDark.classList.add('border-emerald-500', 'theme-accent-border', 'theme-accent-text', 'bg-slate-900');
-          themeBtnLight.classList.remove('border-emerald-500', 'theme-accent-border', 'theme-accent-text', 'bg-slate-900');
-        }
       }
+      updateThemeButtons();
 
       if (save) {
         appSettings.themeMode = mode;
@@ -1052,6 +1058,9 @@
 
       // 移除彩虹按鈕圈選效果
       document.getElementById('rainbowThemeBtn').classList.remove('ring-4', 'ring-slate-300', 'dark:ring-slate-700');
+
+      // 離開彩虹模式，主題按鈕需恢復彩色邊框高亮
+      updateThemeButtons();
 
       if (save) {
         appSettings.themeColor = color;
@@ -1092,8 +1101,29 @@
         .peer:checked ~ .theme-accent-peer {
           background: linear-gradient(90deg, #ff4b4b, #ff7f00, #ffdd00, #00e676, #00b0ff, #aa00ff) !important;
         }
+        /* accent-color 無法用漸層，改自訂 range 軌道為彩虹漸層、拇指為白底 */
         .theme-accent-range {
-          accent-color: #00b0ff !important;
+          -webkit-appearance: none;
+          appearance: none;
+          height: 8px;
+          border-radius: 9999px;
+          background: linear-gradient(90deg, #ff4b4b, #ff7f00, #ffdd00, #00e676, #00b0ff, #aa00ff) !important;
+        }
+        .theme-accent-range::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 16px; height: 16px;
+          border-radius: 50%;
+          background: #ffffff;
+          border: 2px solid #aa00ff;
+          cursor: pointer;
+        }
+        .theme-accent-range::-moz-range-thumb {
+          width: 16px; height: 16px;
+          border-radius: 50%;
+          background: #ffffff;
+          border: 2px solid #aa00ff;
+          cursor: pointer;
         }
         .loading-spinner {
           border-top-color: #ff4b4b !important;
@@ -1103,6 +1133,9 @@
 
       // 設定彩虹按鈕的外框啟用效果
       document.getElementById('rainbowThemeBtn').classList.add('ring-4', 'ring-slate-300', 'dark:ring-slate-700');
+
+      // 進入彩虹模式，主題按鈕移除彩色邊框
+      updateThemeButtons();
 
       if (save) {
         appSettings.isRainbow = true;
