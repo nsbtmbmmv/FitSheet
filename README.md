@@ -22,3 +22,7 @@
 1. 建立 Google 試算表,開啟 **擴充功能 → Apps Script**。
 2. 將 `Code.gs` 與 `Index.html` 貼入專案。
 3. 點選 **部署 → 新增部署作業 → 網頁應用程式**,即可取得專屬網址。
+
+## 教學文件
+
+詳細使用與設定教學請參考:[FitSheet 教學文件](https://docs.google.com/document/d/1L5gq2wpDGMVTlC2oKbH2a7TXt8V0jlqnbj20lzABuo8/edit?usp=sharing)
